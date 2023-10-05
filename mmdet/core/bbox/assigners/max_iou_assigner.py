@@ -1,4 +1,5 @@
 import torch
+import inspect
 
 from ..builder import BBOX_ASSIGNERS
 from ..iou_calculators import build_iou_calculator
@@ -103,6 +104,10 @@ class MaxIoUAssigner(BaseAssigner):
                 gt_labels = gt_labels.cpu()
 
         overlaps = self.iou_calculator(gt_bboxes, bboxes)
+        # if type(self.iou_calculator).__name__ == "OBBOverlaps":
+        #     temp = overlaps[overlaps.gt(0.1)]
+        #     if temp.shape[0] > 0:
+        #         print("min: {}, max: {}".format(temp.min(), temp.max()))
 
         if (self.ignore_iof_thr > 0 and gt_bboxes_ignore is not None
                 and gt_bboxes_ignore.numel() > 0 and bboxes.numel() > 0):
