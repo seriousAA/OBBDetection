@@ -80,8 +80,7 @@ class OrientedRPNHead(RPNTestMixin, OBBAnchorHead):
             img_metas,
             gt_bboxes_ignore=gt_bboxes_ignore)
         return dict(
-            loss_rpn_cls=losses['loss_cls'], loss_rpn_bbox=losses['loss_bbox'],
-            rpn_pos_num=losses['num_total_pos'], rpn_neg_num=losses['num_total_neg'])
+            loss_rpn_cls=losses['loss_cls'], loss_rpn_bbox=losses['loss_bbox'])
 
     def _get_bboxes_single(self,
                            cls_scores,

@@ -494,8 +494,6 @@ class OBBAnchorHead(BaseDenseHead):
         num_total_samples = (
             num_total_pos + num_total_neg if self.sampling else num_total_pos)
 
-        num_total_pos = torch.tensor(num_total_pos, dtype=torch.float).to(device)
-        num_total_neg = torch.tensor(num_total_neg, dtype=torch.float).to(device)
         # anchor number of multi levels
         num_level_anchors = [anchors.size(0) for anchors in anchor_list[0]]
         # concat all level anchors and flags to a single tensor
@@ -515,7 +513,7 @@ class OBBAnchorHead(BaseDenseHead):
             bbox_targets_list,
             bbox_weights_list,
             num_total_samples=num_total_samples)
-        return dict(loss_cls=losses_cls, loss_bbox=losses_bbox, num_total_pos=num_total_pos, num_total_neg=num_total_neg)
+        return dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds'))
     def get_bboxes(self,
