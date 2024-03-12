@@ -1,3 +1,4 @@
 [submodule "BboxToolkit"]
 	path = BboxToolkit
-	url = https://github.com/jbwang1997/BboxToolkit.git
+	url = git@github.com:seriousAA/BboxToolkit.git
+	branch = cvpr
