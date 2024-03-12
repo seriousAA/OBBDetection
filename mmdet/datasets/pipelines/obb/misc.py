@@ -1,4 +1,5 @@
 import cv2
+import os
 import numpy as np
 import BboxToolkit as bt
 import pycocotools.mask as maskUtils
@@ -7,6 +8,70 @@ from mmdet.core import PolygonMasks, BitmapMasks
 
 pi = 3.141592
 
+
+def visualize_with_obboxes(img, obboxes, labels, args):
+    """
+    Visualize oriented bounding boxes on the image based on given arguments and save the visualization.
+
+    Args:
+        img (np.ndarray): Content of the image file.
+        obboxes (np.ndarray): Array of obboxes with shape [N, 5] where 5 -> (x_ctr, y_ctr, w, h, angle).
+        labels (np.ndarray): Array of labels for the obboxes.
+        args (dict): Dictionary of visualization arguments.
+    """
+
+    # Ensure the save directory exists
+    save_path = args.get('save_path', '.')
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    # Load class names if provided
+    class_names = None
+    if args.get('shown_names') and os.path.isfile(args['shown_names']):
+        with open(args['shown_names'], 'r') as f:
+            class_names = [line.strip() for line in f.readlines()]
+
+    # Convert obboxes to the specified bbox type if needed
+    shown_btype = args.get('shown_btype')
+    if shown_btype:
+        obboxes = bt.bbox2type(obboxes, shown_btype)
+
+    # Filtering by score threshold if scores are provided
+    score_thr = args.get('score_thr', 0.2)
+    if obboxes.shape[1] == 6:  # Assuming scores are provided as the last column
+        scores = obboxes[:, 5]
+        valid_indices = scores > score_thr
+        obboxes = obboxes[valid_indices, :5]  # Exclude scores from obboxes
+        labels = labels[valid_indices]
+        scores = scores[valid_indices]
+    else:
+        scores = None
+
+    # Visualization parameters
+    colors = args.get('colors', 'green')
+    thickness = args.get('thickness', 2.0)
+    text_off = args.get('text_off', False)
+    font_size = args.get('font_size', 10)
+
+    # Call visualization function from BboxToolkit
+    bt.imshow_bboxes(img, obboxes, labels=labels, scores=scores,
+                     class_names=class_names, colors=colors, thickness=thickness,
+                     with_text=not text_off, font_size=font_size, show=False,
+                     wait_time=args.get('wait_time', 0), out_file=save_path)
+
+vis_args = {
+    "save_dir": "",
+    "save_path": "",
+    "shown_btype": None,
+    "shown_names": 
+    "/home/liyuqiu/RS-PCT/thirdparty/OBBDetection/BboxToolkit/tools/vis_configs/dota1_5/short_names.txt",
+    "score_thr": 0.3,
+    "colors": 
+    "/home/liyuqiu/RS-PCT/thirdparty/OBBDetection/BboxToolkit/tools/vis_configs/dota1_5/colors.txt",
+    "thickness": 2.5,
+    "text_off": False,
+    "font_size": 12,
+    "wait_time": 0
+}
 
 def bbox2mask(bboxes, w, h, mask_type='polygon'):
     polys = bt.bbox2type(bboxes, 'poly')
