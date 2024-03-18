@@ -33,7 +33,7 @@ def accuracy(pred, target, topk=1):
     res = []
     for k in topk:
         correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-        res.append(correct_k.mul_(100.0 / pred.size(0)))
+        res.append(correct_k.mul_(100.0 / max(pred.size(0), 1)))
     return res[0] if return_single else res
 
 
