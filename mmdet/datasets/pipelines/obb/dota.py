@@ -55,7 +55,7 @@ class DOTASpecialIgnore(object):
         else:
             return results
 
-        ignore = np.zeros((num_objs, ), dtype=np.bool)
+        ignore = np.zeros((num_objs, ), dtype=np.bool_)
         if self.ignore_diff:
             assert 'diffs' in results
             diffs = results['diffs']

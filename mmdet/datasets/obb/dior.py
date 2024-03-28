@@ -63,7 +63,7 @@ class DIORDataset(CustomDataset):
             for i, dets in enumerate(result):
                 bboxes.append(dets[:, :-1])
                 scores.append(dets[:, -1])
-                labels.append(np.zeros((dets.shape[0], ), dtype=np.int) + i)
+                labels.append(np.zeros((dets.shape[0], ), dtype=np.int64) + i)
             ann['bboxes'] = np.concatenate(bboxes, axis=0)
             ann['labels'] = np.concatenate(labels, axis=0)
             ann['scores'] = np.concatenate(scores, axis=0)

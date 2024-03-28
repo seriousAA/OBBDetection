@@ -133,7 +133,7 @@ class CityscapesDataset(CocoDataset):
                 segms = mmcv.concat_list(segm_result)
                 mask_score = [bbox[-1] for bbox in bboxes]
             labels = [
-                np.full(bbox.shape[0], i, dtype=np.int32)
+                np.full(bbox.shape[0], i, dtype=np.int6432)
                 for i, bbox in enumerate(bbox_result)
             ]
             labels = np.concatenate(labels)

@@ -209,7 +209,7 @@ class DOTADataset(CustomDataset):
                 gt_bboxes = ann['bboxes']
                 gt_labels = ann['labels']
                 diffs = ann.get(
-                    'diffs', np.zeros((gt_bboxes.shape[0],), dtype=np.int))
+                    'diffs', np.zeros((gt_bboxes.shape[0],), dtype=np.int64))
 
                 if task == 'Task2':
                     gt_bboxes = bt.bbox2type(gt_bboxes, 'hbb')
@@ -244,7 +244,7 @@ class DOTADataset(CustomDataset):
                 bboxes = info['ann']['bboxes']
                 if ign_diff:
                     diffs = info['ann'].get(
-                        'diffs', np.zeros((bboxes.shape[0],), dtype=np.int))
+                        'diffs', np.zeros((bboxes.shape[0],), dtype=np.int64))
                     bboxes = bboxes[diffs == 0]
                 gt_bboxes.append(bboxes)
             if isinstance(eval_iou_thr, float):

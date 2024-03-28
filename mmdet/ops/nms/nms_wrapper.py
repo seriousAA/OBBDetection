@@ -187,4 +187,4 @@ def nms_match(dets, thresh):
     if isinstance(dets, torch.Tensor):
         return [dets.new_tensor(m, dtype=torch.long) for m in matched]
     else:
-        return [np.array(m, dtype=np.int) for m in matched]
+        return [np.array(m, dtype=np.int64) for m in matched]

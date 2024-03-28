@@ -124,7 +124,7 @@ def print_recall_summary(recalls,
         logger (logging.Logger | str | None): The way to print the recall
             summary. See `mmdet.utils.print_log()` for details. Default: None.
     """
-    proposal_nums = np.array(proposal_nums, dtype=np.int32)
+    proposal_nums = np.array(proposal_nums, dtype=np.int6432)
     iou_thrs = np.array(iou_thrs)
     if row_idxs is None:
         row_idxs = np.arange(proposal_nums.size)
