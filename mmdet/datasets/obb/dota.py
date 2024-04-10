@@ -89,7 +89,7 @@ class DOTADataset(CustomDataset):
                        with_merge=True,
                        ign_scale_ranges=None,
                        iou_thr=0.5,
-                       nproc=4,
+                       nproc=10,
                        save_dir=None,
                        **kwargs):
         nproc = min(nproc, os.cpu_count())
