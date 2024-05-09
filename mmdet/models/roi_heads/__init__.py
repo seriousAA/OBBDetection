@@ -28,5 +28,5 @@ __all__ = [
     'GridHead', 'MaskIoUHead', 'SingleRoIExtractor', 'PISARoIHead',
     'PointRendRoIHead', 'MaskPointHead', 'CoarseMaskHead', 'DynamicRoIHead',
 
-    'RoITransRoIHead'
+    'RoITransRoIHead', 'OBBStandardRoIHead'
 ]
