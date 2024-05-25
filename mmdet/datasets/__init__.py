@@ -10,6 +10,7 @@ from .samplers import DistributedGroupSampler, DistributedSampler, GroupSampler
 from .voc import VOCDataset
 from .wider_face import WIDERFaceDataset
 from .xml_style import XMLDataset
+from .pipelines import replace_ImageToTensor
 
 from .obb.dota import DOTADataset
 from .obb.dior import DIORDataset

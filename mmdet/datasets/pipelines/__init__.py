@@ -13,7 +13,7 @@ from .transforms import (Albu, Expand, MinIoURandomCrop, Normalize, Pad,
 from .obb.base import (LoadOBBAnnotations, Mask2OBB, OBBDefaultFormatBundle,
                        OBBRandomFlip, RandomOBBRotate, MultiScaleFlipRotateAug,
                        FliterEmpty)
-from .obb.dota import LoadDOTASpecialInfo, DOTASpecialIgnore
+from .obb.dota import LoadDOTASpecialInfo, DOTASpecialIgnore, replace_ImageToTensor
 
 __all__ = [
     'Compose', 'to_tensor', 'ToTensor', 'ImageToTensor', 'ToDataContainer',

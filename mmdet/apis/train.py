@@ -1,15 +1,18 @@
 import random
+import warnings
 
 import numpy as np
 import torch
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import (DistSamplerSeedHook, EpochBasedRunner, OptimizerHook,
-                         build_optimizer)
+                         build_runner, build_optimizer)
 
 from mmdet.core import DistEvalHook, EvalHook, Fp16OptimizerHook, RandomFPHook
 from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.utils import get_root_logger
-
+from mmdet.datasets import replace_ImageToTensor
+from mmcv.runner.hooks import HOOKS
+from mmcv.utils import build_from_cfg
 
 def set_random_seed(seed, deterministic=False):
     """Set random seed.
@@ -82,12 +85,28 @@ def train_detector(model,
 
     # build runner
     optimizer = build_optimizer(model, cfg.optimizer)
-    runner = EpochBasedRunner(
-        model,
-        optimizer=optimizer,
-        work_dir=cfg.work_dir,
-        logger=logger,
-        meta=meta)
+    if "runner" not in cfg:
+        cfg.runner = {"type": "EpochBasedRunner", "max_epochs": cfg.total_epochs}
+        warnings.warn(
+            "config is now expected to have a `runner` section, "
+            "please set `runner` in your config.",
+            UserWarning,
+        )
+    else:
+        if "total_epochs" in cfg and cfg.runner.type == "EpochBasedRunner":
+            assert cfg.total_epochs == cfg.runner.max_epochs
+
+    runner = build_runner(
+        cfg.runner,
+        default_args=dict(
+            model=model,
+            optimizer=optimizer,
+            work_dir=cfg.work_dir,
+            logger=logger,
+            meta=meta,
+        ),
+    )
+
     # an ugly workaround to make .log and .log.json filenames the same
     runner.timestamp = timestamp
 
@@ -106,28 +125,63 @@ def train_detector(model,
                                    cfg.checkpoint_config, cfg.log_config,
                                    cfg.get('momentum_config', None))
     if distributed:
-        runner.register_hook(DistSamplerSeedHook())
+        if isinstance(runner, EpochBasedRunner):
+            runner.register_hook(DistSamplerSeedHook())
 
     # register eval hooks
     if validate:
+        # Support batch_size > 1 in validation
+        val_samples_per_gpu = cfg.data.val.pop("samples_per_gpu", cfg.data.samples_per_gpu)
+        if val_samples_per_gpu > 1:
+            # Replace 'ImageToTensor' to 'DefaultFormatBundle'
+            cfg.data.val.pipeline = replace_ImageToTensor(cfg.data.val.pipeline)
+
+        val_dataset = build_dataset(cfg.data.val, dict(test_mode=True))
+        val_dataloader = build_dataloader(
+            val_dataset,
+            samples_per_gpu=val_samples_per_gpu,
+            workers_per_gpu=cfg.data.workers_per_gpu,
+            dist=distributed,
+            shuffle=False)
+        
         eval_cfg = cfg.get('evaluation', {})
-        if eval_cfg is not None:
-            val_dataset = build_dataset(cfg.data.val, dict(test_mode=True))
-            val_dataloader = build_dataloader(
-                val_dataset,
-                samples_per_gpu=1,
-                workers_per_gpu=cfg.data.workers_per_gpu,
-                dist=distributed,
-                shuffle=False)
+        eval_cfg["by_epoch"] = eval_cfg.get(
+            "by_epoch", cfg.runner["type"] != "IterBasedRunner"
+        )
+        if "type" not in eval_cfg:
             eval_hook = DistEvalHook if distributed else EvalHook
-            runner.register_hook(eval_hook(val_dataloader, **eval_cfg))
+            eval_hook = eval_hook(val_dataloader, **eval_cfg)
+
+        else:
+            eval_hook = build_from_cfg(
+                eval_cfg, HOOKS, default_args=dict(dataloader=val_dataloader)
+            )
+
+        runner.register_hook(eval_hook, priority="LOW")
+
 
     # register random fp hook
     if cfg.get('random_fp', False):
         runner.register_hook(RandomFPHook())
 
+    # user-defined hooks
+    if cfg.get("custom_hooks", None):
+        custom_hooks = cfg.custom_hooks
+        assert isinstance(
+            custom_hooks, list
+        ), f"custom_hooks expect list type, but got {type(custom_hooks)}"
+        for hook_cfg in cfg.custom_hooks:
+            assert isinstance(hook_cfg, dict), (
+                "Each item in custom_hooks expects dict type, but got "
+                f"{type(hook_cfg)}"
+            )
+            hook_cfg = hook_cfg.copy()
+            priority = hook_cfg.pop("priority", "NORMAL")
+            hook = build_from_cfg(hook_cfg, HOOKS)
+            runner.register_hook(hook, priority=priority)
+
     if cfg.resume_from:
         runner.resume(cfg.resume_from)
     elif cfg.load_from:
         runner.load_checkpoint(cfg.load_from)
-    runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
+    runner.run(data_loaders, cfg.workflow)
