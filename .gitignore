@@ -123,4 +123,5 @@ work_dirs/
 # vim
 *.swp
 profile_logs/
-data/
+data
+output/
