@@ -1,7 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch.nn as nn
 import torch.nn.functional as F
-from mmdet.models import weight_reduce_loss
+from mmdet.models.losses import weight_reduce_loss
 
 from mmdet.models.builder import LOSSES
 
