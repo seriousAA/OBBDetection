@@ -2,6 +2,33 @@
 #include <ATen/cuda/CUDAContext.h>
 #include <THC/THCAtomics.cuh>
 
+#include <torch/extension.h>
+// Derive major and minor version if not already defined
+#ifndef TORCH_VERSION_MAJOR
+#define TORCH_VERSION_MAJOR (TORCH_VERSION / 10000)
+#endif
+
+#ifndef TORCH_VERSION_MINOR
+#define TORCH_VERSION_MINOR (TORCH_VERSION / 100 % 100)
+#endif
+
+#if TORCH_VERSION_MAJOR < 1 || (TORCH_VERSION_MAJOR == 1 && TORCH_VERSION_MINOR <= 10)
+#include <THC/THC.h>
+#include <THC/THCDeviceUtils.cuh>
+#define CEIL_DIV(x, y) THCCeilDiv(x, y)
+#define CUDA_MALLOC(size) THCudaMalloc(at::globalContext().getTHCState(), size)
+#define CUDA_FREE(ptr) THCudaFree(at::globalContext().getTHCState(), ptr)
+#define CUDA_CHECK(expr) THCudaCheck(expr)
+#else
+#include "ATen/cuda/DeviceUtils.cuh"
+#include <c10/cuda/CUDACachingAllocator.h>
+#include <ATen/ceil_div.h>
+#define CEIL_DIV(x, y) at::ceil_div(x, y)
+#define CUDA_MALLOC(size) c10::cuda::CUDACachingAllocator::raw_alloc(size)
+#define CUDA_FREE(ptr) c10::cuda::CUDACachingAllocator::raw_delete(ptr)
+#define CUDA_CHECK(expr) C10_CUDA_CHECK(expr)
+#endif
+
 #define CUDA_1D_KERNEL_LOOP(i, n)                            \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; \
        i += blockDim.x * gridDim.x)
@@ -98,7 +125,7 @@ int ROIPoolForwardLaucher(const at::Tensor features, const at::Tensor rois,
             output_size, bottom_data, rois_data, scalar_t(spatial_scale),
             channels, height, width, pooled_h, pooled_w, top_data, argmax_data);
       }));
-  THCudaCheck(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
   return 1;
 }
 template <typename scalar_t>
@@ -146,6 +173,6 @@ int ROIPoolBackwardLaucher(const at::Tensor top_grad, const at::Tensor rois,
             scalar_t(spatial_scale), channels, height, width, pooled_h,
             pooled_w, bottom_diff);
       }));
-  THCudaCheck(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
   return 1;
 }

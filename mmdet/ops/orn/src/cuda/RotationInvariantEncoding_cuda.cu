@@ -2,11 +2,36 @@
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
 
-#include <THC/THC.h>
 #include <THC/THCAtomics.cuh>
-#include <THC/THCDeviceUtils.cuh>
 
 #include "./vision.h"
+
+#include <torch/extension.h>
+// Derive major and minor version if not already defined
+#ifndef TORCH_VERSION_MAJOR
+#define TORCH_VERSION_MAJOR (TORCH_VERSION / 10000)
+#endif
+
+#ifndef TORCH_VERSION_MINOR
+#define TORCH_VERSION_MINOR (TORCH_VERSION / 100 % 100)
+#endif
+
+#if TORCH_VERSION_MAJOR < 1 || (TORCH_VERSION_MAJOR == 1 && TORCH_VERSION_MINOR <= 10)
+#include <THC/THC.h>
+#include <THC/THCDeviceUtils.cuh>
+#define CEIL_DIV(x, y) THCCeilDiv(x, y)
+#define CUDA_MALLOC(size) THCudaMalloc(at::globalContext().getTHCState(), size)
+#define CUDA_FREE(ptr) THCudaFree(at::globalContext().getTHCState(), ptr)
+#define CUDA_CHECK(expr) THCudaCheck(expr)
+#else
+#include "ATen/cuda/DeviceUtils.cuh"
+#include <c10/cuda/CUDACachingAllocator.h>
+#include <ATen/ceil_div.h>
+#define CEIL_DIV(x, y) at::ceil_div(x, y)
+#define CUDA_MALLOC(size) c10::cuda::CUDACachingAllocator::raw_alloc(size)
+#define CUDA_FREE(ptr) c10::cuda::CUDACachingAllocator::raw_delete(ptr)
+#define CUDA_CHECK(expr) C10_CUDA_CHECK(expr)
+#endif
 
 // #define FLT_MAX 3.402823466e+38F
 
@@ -101,11 +126,11 @@ std::tuple<at::Tensor, at::Tensor> RIE_forward_cuda(const at::Tensor& feature,
   const long count = nBatch * nFeature;
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
-  dim3 grid(std::min(THCCeilDiv(count, 512L), 4096L));
+  dim3 grid(std::min(CEIL_DIV(count, 512L), 4096L));
   dim3 block(512);
 
   if (mainDirection.numel() == 0) {
-    THCudaCheck(cudaGetLastError());
+    CUDA_CHECK(cudaGetLastError());
     return std::make_tuple(mainDirection, aligned);
   }
 
@@ -119,7 +144,7 @@ std::tuple<at::Tensor, at::Tensor> RIE_forward_cuda(const at::Tensor& feature,
          mainDirection.contiguous().data<uint8_t>(),
          aligned.contiguous().data<scalar_t>());
   });
-  THCudaCheck(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
   return std::make_tuple(mainDirection, aligned);
 }
 
@@ -138,12 +163,12 @@ at::Tensor RIE_backward_cuda(const at::Tensor& mainDirection,
   const long count = nBatch * nFeature;
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
-  dim3 grid(std::min(THCCeilDiv(count, 512L), 4096L));
+  dim3 grid(std::min(CEIL_DIV(count, 512L), 4096L));
   dim3 block(512);
 
   // handle possibly empty gradients
   if (gradOutput.numel() == 0) {
-    THCudaCheck(cudaGetLastError());
+    CUDA_CHECK(cudaGetLastError());
     return gradInput;
   }
 
@@ -157,6 +182,6 @@ at::Tensor RIE_backward_cuda(const at::Tensor& mainDirection,
          nOrientation,
          gradInput.contiguous().data<scalar_t>());
   });
-  THCudaCheck(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
   return gradInput;
 }

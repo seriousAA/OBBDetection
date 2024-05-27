@@ -3,8 +3,31 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <torch/extension.h>
 
+// Derive major and minor version if not already defined
+#ifndef TORCH_VERSION_MAJOR
+#define TORCH_VERSION_MAJOR (TORCH_VERSION / 10000)
+#endif
+
+#ifndef TORCH_VERSION_MINOR
+#define TORCH_VERSION_MINOR (TORCH_VERSION / 100 % 100)
+#endif
+
+#if TORCH_VERSION_MAJOR < 1 || (TORCH_VERSION_MAJOR == 1 && TORCH_VERSION_MINOR <= 10)
 #include <THC/THC.h>
 #include <THC/THCDeviceUtils.cuh>
+#define CEIL_DIV(x, y) THCCeilDiv(x, y)
+#define CUDA_MALLOC(size) THCudaMalloc(at::globalContext().getTHCState(), size)
+#define CUDA_FREE(ptr) THCudaFree(at::globalContext().getTHCState(), ptr)
+#define CUDA_CHECK(expr) THCudaCheck(expr)
+#else
+#include "ATen/cuda/DeviceUtils.cuh"
+#include <c10/cuda/CUDACachingAllocator.h>
+#include <ATen/ceil_div.h>
+#define CEIL_DIV(x, y) at::ceil_div(x, y)
+#define CUDA_MALLOC(size) c10::cuda::CUDACachingAllocator::raw_alloc(size)
+#define CUDA_FREE(ptr) c10::cuda::CUDACachingAllocator::raw_delete(ptr)
+#define CUDA_CHECK(expr) C10_CUDA_CHECK(expr)
+#endif
 
 #define INF 10000000
 #define EPS 0.000001
@@ -106,7 +129,7 @@ at::Tensor convex_sort_cuda(
     return convex_index_t;
   }
 
-  dim3 blocks(THCCeilDiv(nbs, 512));
+  dim3 blocks(CEIL_DIV(nbs, 512));
   dim3 threads(512);
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 

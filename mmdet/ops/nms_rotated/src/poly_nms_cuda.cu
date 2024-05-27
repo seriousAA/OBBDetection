@@ -1,20 +1,35 @@
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
 
-#include <THC/THC.h>
-#include <THC/THCDeviceUtils.cuh>
-
 #include <vector>
 #include <iostream>
 
-#define CUDA_CHECK(condition) \
-  /* Code block avoids redefinition of cudaError_t error */ \
-  do { \
-    cudaError_t error = condition; \
-    if (error != cudaSuccess) { \
-      std::cout << cudaGetErrorString(error) << std::endl; \
-    } \
-  } while (0)
+#include <torch/extension.h>
+// Derive major and minor version if not already defined
+#ifndef TORCH_VERSION_MAJOR
+#define TORCH_VERSION_MAJOR (TORCH_VERSION / 10000)
+#endif
+
+#ifndef TORCH_VERSION_MINOR
+#define TORCH_VERSION_MINOR (TORCH_VERSION / 100 % 100)
+#endif
+
+#if TORCH_VERSION_MAJOR < 1 || (TORCH_VERSION_MAJOR == 1 && TORCH_VERSION_MINOR <= 10)
+#include <THC/THC.h>
+#include <THC/THCDeviceUtils.cuh>
+#define CEIL_DIV(x, y) THCCeilDiv(x, y)
+#define CUDA_MALLOC(size) THCudaMalloc(at::globalContext().getTHCState(), size)
+#define CUDA_FREE(ptr) THCudaFree(at::globalContext().getTHCState(), ptr)
+#define CUDA_CHECK(expr) THCudaCheck(expr)
+#else
+#include "ATen/cuda/DeviceUtils.cuh"
+#include <c10/cuda/CUDACachingAllocator.h>
+#include <ATen/ceil_div.h>
+#define CEIL_DIV(x, y) at::ceil_div(x, y)
+#define CUDA_MALLOC(size) c10::cuda::CUDACachingAllocator::raw_alloc(size)
+#define CUDA_FREE(ptr) c10::cuda::CUDACachingAllocator::raw_delete(ptr)
+#define CUDA_CHECK(expr) C10_CUDA_CHECK(expr)
+#endif
 
 #define DIVUP(m,n) ((m) / (n) + ((m) % (n) > 0))
 int const threadsPerBlock = sizeof(unsigned long long) * 8;
@@ -188,7 +203,7 @@ __global__ void poly_nms_kernel(const int n_polys, const float nms_overlap_thres
                 t |= 1ULL << i;
             }
         }
-        const int col_blocks = THCCeilDiv(n_polys, threadsPerBlock);
+        const int col_blocks = CEIL_DIV(n_polys, threadsPerBlock);
         dev_mask[cur_box_idx * col_blocks + col_start] = t;
     }
 }
@@ -206,18 +221,16 @@ at::Tensor poly_nms_cuda(const at::Tensor boxes, float nms_overlap_thresh) {
 
     int boxes_num = boxes.size(0);
 
-    const int col_blocks = THCCeilDiv(boxes_num, threadsPerBlock);
+    const int col_blocks = CEIL_DIV(boxes_num, threadsPerBlock);
 
     scalar_t* boxes_dev = boxes_sorted.data_ptr<scalar_t>();
 
-    THCState *state = at::globalContext().lazyInitCUDA();
-
     unsigned long long* mask_dev = NULL;
 
-    mask_dev = (unsigned long long*) THCudaMalloc(state, boxes_num * col_blocks * sizeof(unsigned long long));
+    mask_dev = (unsigned long long*) CUDA_MALLOC(boxes_num * col_blocks * sizeof(unsigned long long));
 
-    dim3 blocks(THCCeilDiv(boxes_num, threadsPerBlock),
-                THCCeilDiv(boxes_num, threadsPerBlock));
+    dim3 blocks(CEIL_DIV(boxes_num, threadsPerBlock),
+                CEIL_DIV(boxes_num, threadsPerBlock));
     dim3 threads(threadsPerBlock);
     poly_nms_kernel<<<blocks, threads, 0, at::cuda::getCurrentCUDAStream()>>>(boxes_num,
                                         nms_overlap_thresh,
@@ -225,7 +238,7 @@ at::Tensor poly_nms_cuda(const at::Tensor boxes, float nms_overlap_thresh) {
                                         mask_dev);
     
     std::vector<unsigned long long> mask_host(boxes_num * col_blocks);
-    THCudaCheck(cudaMemcpyAsync(
+    CUDA_CHECK(cudaMemcpyAsync(
 			    &mask_host[0],
                             mask_dev,
                             sizeof(unsigned long long) * boxes_num * col_blocks,
@@ -253,7 +266,7 @@ at::Tensor poly_nms_cuda(const at::Tensor boxes, float nms_overlap_thresh) {
         }
     }
 
-    THCudaFree(state, mask_dev);
+    CUDA_FREE(mask_dev);
 
     return order_t.index({
         keep.narrow(/*dim=*/0, /*start=*/0, /*length=*/num_to_keep).to(
