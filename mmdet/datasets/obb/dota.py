@@ -10,6 +10,7 @@ import cv2
 import mmcv
 import numpy as np
 
+import torch.multiprocessing as mp
 from mmdet.core import eval_arb_map, eval_arb_recalls
 from mmdet.ops.nms import nms
 from mmdet.ops.nms_rotated import obb_nms, BT_nms
@@ -150,12 +151,13 @@ class DOTADataset(CustomDataset):
             CLASSES=self.CLASSES,
             iou_thr=iou_thr,
             task=task)
-        if nproc <= 1:
+        if nproc <= 1 or not mp.get_start_method() == 'spawn':
             print('Single processing')
             merged_results = mmcv.track_iter_progress(
                 (map(merge_func, collector.items()), len(collector)))
         else:
             print('Multiple processing')
+            # mp.set_start_method('spawn', force=True)
             merged_results = mmcv.track_parallel_progress(
                 merge_func, list(collector.items()), nproc)
 

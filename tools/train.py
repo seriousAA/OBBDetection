@@ -3,6 +3,9 @@ import copy
 import os
 import os.path as osp
 import time
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning, message=".*MMCV will release v2\.0\.0.*")
 
 import mmcv
 import torch
