@@ -1,12 +1,12 @@
-matplotlib
-mmcv-full>=1.3,<1.8
 numpy
+mmcv-full>=1.3,<1.8
+torch>=1.10
+torchvision
+matplotlib
 Pillow  # need older pillow until torchvision is fixed
 six
 terminaltables
-torchvision
 wandb
-torch>=1.10
 pandas
 scipy
 shapely
