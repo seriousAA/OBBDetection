@@ -63,10 +63,10 @@ vis_args = {
     "save_path": "",
     "shown_btype": None,
     "shown_names": 
-    "/home/liyuqiu/RS-PCT/thirdparty/OBBDetection/BboxToolkit/tools/vis_configs/dota1_5/short_names.txt",
+    "BboxToolkit/tools/vis_configs/dota2_0/short_names.txt",
     "score_thr": 0.3,
     "colors": 
-    "/home/liyuqiu/RS-PCT/thirdparty/OBBDetection/BboxToolkit/tools/vis_configs/dota1_5/colors.txt",
+    "BboxToolkit/tools/vis_configs/dota2_0/colors.txt",
     "thickness": 2.5,
     "text_off": False,
     "font_size": 12,
