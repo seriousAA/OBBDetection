@@ -151,13 +151,14 @@ class DOTADataset(CustomDataset):
             CLASSES=self.CLASSES,
             iou_thr=iou_thr,
             task=task)
-        if nproc <= 1 or not mp.get_start_method() == 'spawn':
+        if nproc <= 1:
             print('Single processing')
             merged_results = mmcv.track_iter_progress(
                 (map(merge_func, collector.items()), len(collector)))
         else:
-            print('Multiple processing')
-            # mp.set_start_method('spawn', force=True)
+            print('Multiple processing: %d processes' % nproc)
+            if mp.get_start_method(allow_none=True) is not 'spawn':
+                mp.set_start_method('spawn', force=True)
             merged_results = mmcv.track_parallel_progress(
                 merge_func, list(collector.items()), nproc)
 
