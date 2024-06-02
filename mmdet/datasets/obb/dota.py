@@ -67,7 +67,7 @@ class DOTADataset(CustomDataset):
         return data_infos
 
     def add_random_fp(self):
-        if self.fp_ratio == 0:
+        if self.fp_ratio == 0 or self.filter_empty_gt:
             return self.pp_infos
         elif self.fp_ratio == 'all':
             return self.pp_infos + self.fp_infos
