@@ -389,7 +389,7 @@ class RandomOBBRotate(object):
         if 'angle' not in results:
             results['angle'] = self.get_random_angle(results)
         if results['angle'] == 0:
-            results['matrix'] = np.eye(3)
+            results['matrix'] = np.eye(3)[:2]
             return results
         matrix, w, h = self.get_matrix_and_size(results)
         results['matrix'] = matrix
