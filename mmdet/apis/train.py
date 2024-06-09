@@ -180,8 +180,8 @@ def train_detector(model,
             hook = build_from_cfg(hook_cfg, HOOKS)
             runner.register_hook(hook, priority=priority)
 
-    if cfg.resume_from:
+    if cfg.get("resume_from", None):
         runner.resume(cfg.resume_from)
-    elif cfg.load_from:
+    elif cfg.get("load_from", None):
         runner.load_checkpoint(cfg.load_from)
     runner.run(data_loaders, cfg.workflow)
