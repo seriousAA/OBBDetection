@@ -1,6 +1,6 @@
-from mmcv.runner.hooks import Hook
+from mmcv.runner.hooks import HOOKS, Hook
 
-
+@HOOKS.register_module()
 class RandomFPHook(Hook):
     '''
     Shuffle false patchs in training
