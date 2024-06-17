@@ -157,8 +157,10 @@ class DOTADataset(CustomDataset):
                 (map(merge_func, collector.items()), len(collector)))
         else:
             print('Multiple processing: %d processes' % nproc)
-            if mp.get_start_method(allow_none=True) is not 'spawn':
+            if mp.get_start_method(allow_none=True) != 'spawn':
+                print(f"Current start method is {mp.get_start_method(allow_none=True)}, ")
                 mp.set_start_method('spawn', force=True)
+                print(f"switch to {mp.get_start_method()} from now on.")
             merged_results = mmcv.track_parallel_progress(
                 merge_func, list(collector.items()), nproc)
 
