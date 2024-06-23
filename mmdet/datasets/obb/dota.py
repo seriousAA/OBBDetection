@@ -4,6 +4,9 @@ import time
 from collections import defaultdict
 from functools import partial
 from random import sample
+import subprocess
+import torch
+
 
 import BboxToolkit as bt
 import cv2
@@ -146,24 +149,43 @@ class DOTADataset(CustomDataset):
             new_result = np.concatenate(new_result, axis=0)
             collector[data_info['ori_id']].append(new_result)
 
+        threshold = 5e4
         merge_func = partial(
             _merge_func,
             CLASSES=self.CLASSES,
             iou_thr=iou_thr,
-            task=task)
+            task=task,
+            threshold=threshold
+        )
         if nproc <= 1:
             print('Single processing')
             merged_results = mmcv.track_iter_progress(
                 (map(merge_func, collector.items()), len(collector)))
         else:
-            print('Multiple processing: %d processes' % nproc)
+            print('Multiple processing')
+            count_func = partial(
+                _count_func,
+                CLASSES=self.CLASSES,
+                threshold=threshold
+            )
+            tasks = list(collector.items())
             if mp.get_start_method(allow_none=True) != 'spawn':
-                print(f"Current start method is {mp.get_start_method(allow_none=True)}, ")
+                # print(f"Current start method is {mp.get_start_method(allow_none=True)}, ")
                 mp.set_start_method('spawn', force=True)
-                print(f"switch to {mp.get_start_method()} from now on.")
-            merged_results = mmcv.track_parallel_progress(
-                merge_func, list(collector.items()), nproc)
-
+                # print(f"switch to {mp.get_start_method()} from now on.")
+            print("Scan and sort the huge images based on the max number of "
+                  "det bboxes among all categories")
+            count_results = mmcv.track_parallel_progress(
+                count_func, tasks, nproc, keep_order=True)
+            easy_tasks = [task for task, flag in zip(tasks, count_results) if not flag]
+            print(f"Use {nproc} subprocesses to handle the easy tasks using CPU.")
+            easy_results = mmcv.track_parallel_progress(
+                merge_func, easy_tasks, nproc)
+            tough_tasks = [task for task, flag in zip(tasks, count_results) if flag]
+            print("Accelerate the tough tasks by cuda using GPU.")
+            tough_results = mmcv.track_parallel_progress(
+                merge_func, tough_tasks, calculate_nproc_gpu_source())
+            merged_results = easy_results + tough_results
         if save_dir is not None:
             id_list, dets_list = zip(*merged_results)
             bt.save_dota_submission(save_dir, id_list, dets_list, task, self.CLASSES)
@@ -265,25 +287,50 @@ class DOTADataset(CustomDataset):
                     eval_results[f'AR@{num}'] = ar[i]
         return eval_results
 
+def _count_func(info, CLASSES, threshold=5e2):
+    _, label_dets = info
+    label_dets = np.concatenate(label_dets, axis=0)
+    labels, dets = label_dets[:, 0], label_dets[:, 1:]
+    for i in range(len(CLASSES)):
+        cls_dets = dets[labels == i]
 
-def _merge_func(info, CLASSES, iou_thr, task):
+        if cls_dets.shape[0] > threshold:
+            return True
+    return False
+
+def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2):
     img_id, label_dets = info
     label_dets = np.concatenate(label_dets, axis=0)
     labels, dets = label_dets[:, 0], label_dets[:, 1:]
-    nms_ops = bt.choice_by_type(nms, obb_nms, BT_nms,
-                                dets, with_score=True)
+    nms_ops = bt.choice_by_type(nms, obb_nms, BT_nms, dets, with_score=True)
 
     big_img_results = []
     for i in range(len(CLASSES)):
         cls_dets = dets[labels == i]
-        nms_dets, _ = nms_ops(cls_dets, iou_thr)
+
+        if cls_dets.shape[0] > threshold:
+            device_id = find_best_gpu()
+            if device_id is None:
+                print("\nWarning: Too many bboxes in a single image:"
+                    f"\nImage ID: {img_id}, Number of subpatches: {len(info[1])}, "
+                    f"Category: {CLASSES[i]}, Number of detection bboxes: {cls_dets.shape[0]}")
+            # if device_id is not None:
+            #     print(f"Trying to use GPU device cuda:{device_id} to accelerate, "
+            #         "it may take longer time than expected.")
+            # else:
+                print("Fail to find available GPU, have to use CPU for NMS ops, "
+                    "the process will be significantly slower than expected!!!")
+            nms_dets, _ = nms_ops(cls_dets, iou_thr, device_id=device_id)
+        else:
+            nms_dets, _ = nms_ops(cls_dets, iou_thr)
 
         if task == 'Task2':
             bboxes = bt.bbox2type(nms_dets[:, :-1], 'hbb')
             nms_dets = np.concatenate([bboxes, nms_dets[:, -1:]], axis=1)
         big_img_results.append(nms_dets)
+    
     return img_id, big_img_results
-
+    
 
 def _list_mask_2_obb(dets, segments):
     new_dets = []
@@ -309,3 +356,54 @@ def _list_mask_2_obb(dets, segments):
                 np.concatenate([new_bboxes, scores[:, None]], axis=1))
         new_dets.append(new_cls_dets)
     return new_dets
+
+def get_visible_devices():
+    visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES', '')
+    if visible_devices:
+        return [int(dev) for dev in visible_devices.split(',')]
+    else:
+        return list(range(torch.cuda.device_count()))
+
+def get_gpu_memory(visible_devices):
+    """Get the current GPU usage for visible devices."""
+    result = subprocess.check_output(
+        [
+            'nvidia-smi', '--query-gpu=memory.total,memory.used,memory.free',
+            '--format=csv,nounits,noheader'
+        ]).decode('utf-8')
+    # Convert the result into a list of dictionaries
+    gpu_memory = []
+    for idx, line in enumerate(result.strip().split('\n')):
+        if idx in visible_devices:
+            total, used, free = line.split(',')
+            gpu_memory.append({
+                'total': int(total),
+                'used': int(used),
+                'free': int(free)
+            })
+    return gpu_memory
+
+def find_best_gpu(threshold=5120, max_retries=5):
+    """Find the GPU with the most free memory that is above a certain threshold."""
+    visible_devices = get_visible_devices()
+    for _ in range(max_retries):
+        gpu_memory = get_gpu_memory(visible_devices)
+        best_gpu = None
+        max_free_memory = 0
+
+        for i, mem in zip(visible_devices, gpu_memory):
+            if mem['free'] > max_free_memory and mem['free'] >= threshold:
+                best_gpu = i
+                max_free_memory = mem['free']
+        
+        if best_gpu is not None:
+            return best_gpu
+
+    return None
+
+def calculate_nproc_gpu_source(single_task_mem=5120):
+    """Calculate the appropriate number of parallel processes based on available GPU memory."""
+    visible_devices = get_visible_devices()
+    gpu_memory = get_gpu_memory(visible_devices)
+    total_free_memory = sum(mem['free'] for mem in gpu_memory)
+    return max(2, total_free_memory // single_task_mem)
