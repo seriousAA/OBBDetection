@@ -4,6 +4,8 @@ import time
 from collections import defaultdict
 from functools import partial
 from random import sample
+from mmdet.utils import calculate_nproc_gpu_source, find_gpu_memory_allocation, find_best_gpu
+
 
 import BboxToolkit as bt
 import cv2
@@ -146,24 +148,52 @@ class DOTADataset(CustomDataset):
             new_result = np.concatenate(new_result, axis=0)
             collector[data_info['ori_id']].append(new_result)
 
+        threshold = 5e2
         merge_func = partial(
             _merge_func,
             CLASSES=self.CLASSES,
             iou_thr=iou_thr,
-            task=task)
+            task=task,
+            threshold=threshold
+        )
         if nproc <= 1:
             print('Single processing')
-            merged_results = mmcv.track_iter_progress(
-                (map(merge_func, collector.items()), len(collector)))
+            merged_results = mmcv.track_progress(
+                merge_func, (collector.items(), len(collector)))
         else:
-            print('Multiple processing: %d processes' % nproc)
+            print('Multiple processing')
+            count_func = partial(
+                _count_func,
+                CLASSES=self.CLASSES,
+                threshold=threshold
+            )
+            tasks = list(collector.items())
             if mp.get_start_method(allow_none=True) != 'spawn':
-                print(f"Current start method is {mp.get_start_method(allow_none=True)}, ")
+                # print(f"Current start method is {mp.get_start_method(allow_none=True)}, ")
                 mp.set_start_method('spawn', force=True)
-                print(f"switch to {mp.get_start_method()} from now on.")
-            merged_results = mmcv.track_parallel_progress(
-                merge_func, list(collector.items()), nproc)
-
+                # print(f"switch to {mp.get_start_method()} from now on.")
+                
+            print("Scan and sort the huge images based on the max number of "
+                  "det bboxes among all categories")
+            print(f"Threshold: {int(threshold)}")
+            count_results = mmcv.track_parallel_progress(
+                count_func, tasks, nproc, keep_order=True)
+            
+            easy_tasks = [task for task, flag in zip(tasks, count_results) if not flag]
+            print(f"Use {nproc} subprocesses to handle the easy tasks using CPU.")
+            easy_results = mmcv.track_parallel_progress(
+                merge_func, easy_tasks, nproc)
+            
+            tough_tasks = [task for task, flag in zip(tasks, count_results) if flag]
+            print("Accelerate the tough tasks by cuda using GPU.")
+            if calculate_nproc_gpu_source() < 2:
+                tough_results = mmcv.track_progress(
+                    merge_func, (collector.items(), len(collector)))
+            else:
+                tough_results = mmcv.track_parallel_progress(
+                    merge_func, tough_tasks, calculate_nproc_gpu_source())
+                
+            merged_results = easy_results + tough_results
         if save_dir is not None:
             id_list, dets_list = zip(*merged_results)
             bt.save_dota_submission(save_dir, id_list, dets_list, task, self.CLASSES)
@@ -265,25 +295,51 @@ class DOTADataset(CustomDataset):
                     eval_results[f'AR@{num}'] = ar[i]
         return eval_results
 
+def _count_func(info, CLASSES, threshold=5e2):
+    _, label_dets = info
+    label_dets = np.concatenate(label_dets, axis=0)
+    labels, dets = label_dets[:, 0], label_dets[:, 1:]
+    for i in range(len(CLASSES)):
+        cls_dets = dets[labels == i]
 
-def _merge_func(info, CLASSES, iou_thr, task):
+        if cls_dets.shape[0] > threshold:
+            return True
+    return False
+
+def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2):
     img_id, label_dets = info
     label_dets = np.concatenate(label_dets, axis=0)
     labels, dets = label_dets[:, 0], label_dets[:, 1:]
-    nms_ops = bt.choice_by_type(nms, obb_nms, BT_nms,
-                                dets, with_score=True)
+    nms_ops = bt.choice_by_type(nms, obb_nms, BT_nms, dets, with_score=True)
 
     big_img_results = []
     for i in range(len(CLASSES)):
         cls_dets = dets[labels == i]
-        nms_dets, _ = nms_ops(cls_dets, iou_thr)
+
+        if cls_dets.shape[0] > threshold:
+            device_id = find_gpu_memory_allocation(os.getpid())
+            device_id = device_id if device_id else find_best_gpu()
+            if device_id is None:
+                print("\nWarning: Too many bboxes in a single image:"
+                    f"\nImage ID: {img_id}, Number of subpatches: {len(info[1])}, "
+                    f"Category: {CLASSES[i]}, Number of detection bboxes: {cls_dets.shape[0]}")
+            # if device_id is not None:
+            #     print(f"Trying to use GPU device cuda:{device_id} to accelerate, "
+            #         "it may take longer time than expected.")
+            # else:
+                print("Fail to find available GPU, have to use CPU for NMS ops, "
+                    "the process will be significantly slower than expected!!!")
+            nms_dets, _ = nms_ops(cls_dets, iou_thr, device_id=device_id)
+        else:
+            nms_dets, _ = nms_ops(cls_dets, iou_thr)
 
         if task == 'Task2':
             bboxes = bt.bbox2type(nms_dets[:, :-1], 'hbb')
             nms_dets = np.concatenate([bboxes, nms_dets[:, -1:]], axis=1)
         big_img_results.append(nms_dets)
+    
     return img_id, big_img_results
-
+    
 
 def _list_mask_2_obb(dets, segments):
     new_dets = []
