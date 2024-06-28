@@ -38,7 +38,7 @@ def find_best_gpu(threshold=5120, max_retries=5):
         best_gpu = None
         max_free_memory = 0
 
-        for i, mem in zip(visible_devices, gpu_memory):
+        for i, mem in enumerate(gpu_memory):
             if mem['free'] > max_free_memory and mem['free'] >= threshold:
                 best_gpu = i
                 max_free_memory = mem['free']
