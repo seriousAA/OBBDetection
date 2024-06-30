@@ -315,7 +315,9 @@ def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2):
     big_img_results = []
     for i in range(len(CLASSES)):
         cls_dets = dets[labels == i]
-
+        indices = np.random.choice(cls_dets.shape[0], min(cls_dets.shape[0],50000), replace=False)
+        cls_dets = cls_dets[indices, :]
+        
         if cls_dets.shape[0] > threshold:
             device_id = find_gpu_memory_allocation(os.getpid())
             device_id = device_id if device_id else find_best_gpu()
