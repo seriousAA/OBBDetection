@@ -306,7 +306,7 @@ def _count_func(info, CLASSES, threshold=5e2):
             return True
     return False
 
-def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2):
+def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2, max_capacity=5e4):
     img_id, label_dets = info
     label_dets = np.concatenate(label_dets, axis=0)
     labels, dets = label_dets[:, 0], label_dets[:, 1:]
@@ -315,7 +315,7 @@ def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2):
     big_img_results = []
     for i in range(len(CLASSES)):
         cls_dets = dets[labels == i]
-        indices = np.random.choice(cls_dets.shape[0], min(cls_dets.shape[0],50000), replace=False)
+        indices = np.random.choice(cls_dets.shape[0], min(cls_dets.shape[0], int(max_capacity)), replace=False)
         cls_dets = cls_dets[indices, :]
         
         if cls_dets.shape[0] > threshold:
