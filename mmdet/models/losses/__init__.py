@@ -1,16 +1,16 @@
 from .accuracy import Accuracy, accuracy
 from .ae_loss import AssociativeEmbeddingLoss
-from .balanced_l1_loss import BalancedL1Loss, balanced_l1_loss
+from .general.balanced_l1_loss import BalancedL1Loss, balanced_l1_loss
 from .cross_entropy_loss import (CrossEntropyLoss, binary_cross_entropy,
                                  cross_entropy, mask_cross_entropy)
-from .focal_loss import FocalLoss, sigmoid_focal_loss
-from .gaussian_focal_loss import GaussianFocalLoss
-from .gfocal_loss import DistributionFocalLoss, QualityFocalLoss
-from .ghm_loss import GHMC, GHMR
-from .iou_loss import (BoundedIoULoss, GIoULoss, IoULoss, bounded_iou_loss,
+from .general.focal_loss import FocalLoss, sigmoid_focal_loss
+from .general.gaussian_focal_loss import GaussianFocalLoss
+from .general.gfocal_loss import DistributionFocalLoss, QualityFocalLoss
+from .general.ghm_loss import GHMC, GHMR
+from .general.iou_loss import (BoundedIoULoss, GIoULoss, IoULoss, bounded_iou_loss,
                        iou_loss)
 from .mse_loss import MSELoss, mse_loss
-from .pisa_loss import carl_loss, isr_p
+from .general.pisa_loss import carl_loss, isr_p
 from .smooth_l1_loss import L1Loss, SmoothL1Loss, l1_loss, smooth_l1_loss
 from .utils import reduce_loss, weight_reduce_loss, weighted_loss
 from .obb import *

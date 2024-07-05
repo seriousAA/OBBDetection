@@ -1,23 +1,24 @@
-from .atss import ATSS
 from .base import BaseDetector
-from .cascade_rcnn import CascadeRCNN
 from .fast_rcnn import FastRCNN
 from .faster_rcnn import FasterRCNN
-from .fcos import FCOS
-from .fovea import FOVEA
-from .fsaf import FSAF
-from .gfl import GFL
-from .grid_rcnn import GridRCNN
-from .htc import HybridTaskCascade
 from .mask_rcnn import MaskRCNN
-from .mask_scoring_rcnn import MaskScoringRCNN
-from .nasfcos import NASFCOS
-from .point_rend import PointRend
 from .reppoints_detector import RepPointsDetector
 from .retinanet import RetinaNet
 from .rpn import RPN
 from .single_stage import SingleStageDetector
 from .two_stage import TwoStageDetector
+
+from .general.atss import ATSS
+from .general.cascade_rcnn import CascadeRCNN
+from .general.fcos import FCOS
+from .general.fovea import FOVEA
+from .general.fsaf import FSAF
+from .general.gfl import GFL
+from .general.grid_rcnn import GridRCNN
+from .general.htc import HybridTaskCascade
+from .general.mask_scoring_rcnn import MaskScoringRCNN
+from .general.nasfcos import NASFCOS
+from .general.point_rend import PointRend
 
 from .obb.obb_base import OBBBaseDetector
 from .obb.obb_two_stage import OBBTwoStageDetector
@@ -38,5 +39,6 @@ __all__ = [
     'FOVEA', 'FSAF', 'NASFCOS', 'PointRend', 'GFL',
 
     'OBBBaseDetector', 'OBBTwoStageDetector', 'OBBSingleStageDetector',
-    'FasterRCNNOBB', 'RetinaNetOBB', 'RoITransformer'
+    'FasterRCNNOBB', 'RetinaNetOBB', 'RoITransformer', 'GlidingVertex',
+    'OBBRPN', 'OrientedRCNN', 'FCOSOBB', 'S2ANet'
 ]
