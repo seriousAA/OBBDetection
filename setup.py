@@ -313,6 +313,13 @@ if __name__ == '__main__':
                          'src/cuda/ActiveRotatingFilter_cuda.cu',
                          'src/cuda/RotationInvariantEncoding_cuda.cu',
                          ]),
+            make_cuda_ext(
+                name='msda_cuda',
+                module='mmdet.ops.ms_deform_attn',
+                sources=['src/vision.cpp',
+                         'src/cpu/ms_deform_attn_cpu.cpp',
+                         'src/cuda/ms_deform_attn_cuda.cu',
+                         ]),
         ],
         cmdclass={'build_ext': BuildExtension},
         zip_safe=False)
