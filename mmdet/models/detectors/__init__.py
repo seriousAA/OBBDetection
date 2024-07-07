@@ -19,6 +19,8 @@ from .general.htc import HybridTaskCascade
 from .general.mask_scoring_rcnn import MaskScoringRCNN
 from .general.nasfcos import NASFCOS
 from .general.point_rend import PointRend
+from .general.deformable_detr import DeformableDETR
+from .general.detr import DETR
 
 from .obb.obb_base import OBBBaseDetector
 from .obb.obb_two_stage import OBBTwoStageDetector
@@ -36,7 +38,7 @@ __all__ = [
     'ATSS', 'BaseDetector', 'SingleStageDetector', 'TwoStageDetector', 'RPN',
     'FastRCNN', 'FasterRCNN', 'MaskRCNN', 'CascadeRCNN', 'HybridTaskCascade',
     'RetinaNet', 'FCOS', 'GridRCNN', 'MaskScoringRCNN', 'RepPointsDetector',
-    'FOVEA', 'FSAF', 'NASFCOS', 'PointRend', 'GFL',
+    'FOVEA', 'FSAF', 'NASFCOS', 'PointRend', 'GFL', 'DeformableDETR', 'DETR',
 
     'OBBBaseDetector', 'OBBTwoStageDetector', 'OBBSingleStageDetector',
     'FasterRCNNOBB', 'RetinaNetOBB', 'RoITransformer', 'GlidingVertex',
