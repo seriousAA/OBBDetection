@@ -272,8 +272,12 @@ class DOTADataset(CustomDataset):
                 logger=logger,
                 nproc=nproc)
             eval_results['mAP'] = mean_ap
-            eval_results['results'] = [{'class': self.CLASSES[i], **stat} 
-                                        for i, stat in enumerate(stats)]
+            eval_results['results'] = [
+                {'class': self.CLASSES[i], **{k: (np.array(v, ndmin=2)[:, -1].item()
+                                                      if k == 'recall' else v) for k, v in stat.items() 
+                                                  if k != 'precision'}}
+                for i, stat in enumerate(stats)
+            ]
         elif metric == 'recall':
             assert mmcv.is_list_of(results, np.ndarray)
             gt_bboxes = []
