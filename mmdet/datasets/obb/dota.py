@@ -262,7 +262,7 @@ class DOTADataset(CustomDataset):
             print('\nStart calculate mAP!!!')
             print('Result is Only for reference,',
                   'final result is subject to DOTA_devkit')
-            mean_ap, _ = eval_arb_map(
+            mean_ap, stats = eval_arb_map(
                 det_results,
                 annotations,
                 scale_ranges=scale_ranges,
@@ -272,6 +272,8 @@ class DOTADataset(CustomDataset):
                 logger=logger,
                 nproc=nproc)
             eval_results['mAP'] = mean_ap
+            eval_results['results'] = [{'class': self.CLASSES[i], **stat} 
+                                        for i, stat in enumerate(stats)]
         elif metric == 'recall':
             assert mmcv.is_list_of(results, np.ndarray)
             gt_bboxes = []
