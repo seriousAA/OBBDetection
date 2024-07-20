@@ -8,16 +8,17 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 from mmcv.utils import print_log
+from mmcv.runner import BaseModule
 
 from mmdet.core import auto_fp16
 from mmdet.utils import get_root_logger
 
 
-class BaseDetector(nn.Module, metaclass=ABCMeta):
+class BaseDetector(BaseModule, metaclass=ABCMeta):
     """Base class for detectors"""
 
-    def __init__(self):
-        super(BaseDetector, self).__init__()
+    def __init__(self, init_cfg=None):
+        super(BaseDetector, self).__init__(init_cfg)
         self.fp16_enabled = False
 
     @property

@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 import torch.nn.functional as F
-from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+from mmcv.runner import BaseModule, ModuleList, Sequential
 from mmcv.cnn import (build_activation_layer, build_conv_layer,
                       build_norm_layer, xavier_init)
 from mmcv.cnn.bricks.registry import (TRANSFORMER_LAYER,
@@ -18,7 +18,6 @@ from mmcv.cnn.bricks.registry import (TRANSFORMER_LAYER,
 from mmcv.cnn.bricks.transformer import (BaseTransformerLayer,
                                          TransformerLayerSequence,
                                          build_transformer_layer_sequence)
-from mmcv.runner.base_module import BaseModule
 from mmcv.utils import to_2tuple
 from torch.nn.init import normal_
 from torchvision.ops.deform_conv import deform_conv2d
@@ -32,15 +31,6 @@ from timm.models.layers import DropPath, trunc_normal_
 
 from mmdet.models.utils.builder import TRANSFORMER
 
-try:
-    from mmcv.ops.multi_scale_deform_attn import MultiScaleDeformableAttention
-
-except ImportError:
-    warnings.warn(
-        '`MultiScaleDeformableAttention` in MMCV has been moved to '
-        '`mmcv.ops.multi_scale_deform_attn`, please update your MMCV')
-    from mmcv.cnn.bricks.transformer import MultiScaleDeformableAttention
-# import the MSDeformAttn of the original DCN repo
 from mmdet.ops.ms_deform_attn import MSDeformAttn
 DEBUG = 'DEBUG' in os.environ
 
@@ -790,7 +780,7 @@ class DeformableDetrTransformer(Transformer):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
         for m in self.modules():
-            if isinstance(m, MultiScaleDeformableAttention):
+            if isinstance(m, MSDeformAttn):
                 m.init_weights()
         if not self.as_two_stage:
             xavier_init(self.reference_points, distribution='uniform', bias=0.)
@@ -1786,8 +1776,8 @@ class DINOTransformerDecoder(nn.Module):
 
 @TRANSFORMER.register_module()
 class DINOTransformer(nn.Module):
-    def __init__(self, d_model=256, nhead=8, 
-                       num_queries=900, 
+    def __init__(self, d_model=512, nhead=8, 
+                       num_queries=2000, 
                        num_encoder_layers=6,
                        num_decoder_layers=6, 
                        dim_feedforward=2048, dropout=0.0,
@@ -1808,7 +1798,8 @@ class DINOTransformer(nn.Module):
                        add_pos_value=False,
                        random_refpoints_xy=False,
                        # two stage
-                       two_stage_type='standard', # ['no', 'standard', 'early', 'combine', 'enceachlayer', 'enclayer1']
+                       # ['no', 'standard', 'early', 'combine', 'enceachlayer', 'enclayer1']
+                       two_stage_type='standard', 
                        two_stage_pat_embed=0,
                        two_stage_add_query_num=0,
                        two_stage_learn_wh=False,

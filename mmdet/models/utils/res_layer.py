@@ -1,5 +1,6 @@
 from mmcv.cnn import build_conv_layer, build_norm_layer
-from torch import nn as nn
+from torch import nn
+from mmcv.runner import BaseModule
 
 
 class ResLayer(nn.Sequential):
@@ -102,7 +103,7 @@ class ResLayer(nn.Sequential):
         super(ResLayer, self).__init__(*layers)
 
 
-class SimplifiedBasicBlock(nn.BaseModule):
+class SimplifiedBasicBlock(BaseModule):
     """Simplified version of original basic residual block. This is used in
     `SCNet <https://arxiv.org/abs/2012.10150>`_.
 

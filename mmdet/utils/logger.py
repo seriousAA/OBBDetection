@@ -9,7 +9,6 @@ import numpy as np
 import torch
 from mmcv.runner.dist_utils import get_dist_info
 from mmcv.utils import get_logger
-from mmdet.core.visualization import imshow_det_bboxes
 
 try:
     import wandb
@@ -86,79 +85,6 @@ def convert_box(tag, boxes, box_labels, class_labels, std, scores=None):
 def color_transform(img_tensor, mean, std, to_rgb=False):
     img_np = img_tensor.detach().cpu().numpy().transpose((1, 2, 0)).astype(np.float32)
     return mmcv.imdenormalize(img_np, mean, std, to_bgr=not to_rgb)
-
-
-def log_image_with_boxes(
-    tag: str,
-    image: torch.Tensor,
-    bboxes: torch.Tensor,
-    bbox_tag: str = None,
-    labels: torch.Tensor = None,
-    scores: torch.Tensor = None,
-    class_names: Tuple[str] = None,
-    filename: str = None,
-    img_norm_cfg: dict = None,
-    backend: str = "auto",
-    interval: int = 50,
-    work_dir: str= None,
-):
-    rank, _ = get_dist_info()
-    if rank != 0:
-        return
-    _, key = _find_caller()
-    _log_counter[key] += 1
-    if not (interval == 1 or _log_counter[key] % interval == 1):
-        return
-    if backend == "auto":
-        if (wandb is None) or (wandb.run is None):
-            backend = "file"
-        else:
-            backend = "wandb"
-
-    if backend == "wandb":
-        if wandb is None:
-            raise ImportError("wandb is not installed")
-        assert (
-            wandb.run is not None
-        ), "wandb has not been initialized, call `wandb.init` first`"
-
-    elif backend != "file":
-        raise TypeError("backend must be file or wandb")
-
-    if filename is None:
-        filename = f"{_log_counter[key]}.jpg"
-    # use 'vis' as default bbox_tag
-    if bbox_tag is None or bbox_tag == "":
-        bbox_tag = "vis"
-    if img_norm_cfg is not None:
-        image = color_transform(image, **img_norm_cfg)
-    if labels is None:
-        labels = bboxes.new_zeros(bboxes.shape[0]).long()
-        class_names = ["foreground"]
-    if backend == "wandb":
-        im = {}
-        im["data_or_path"] = image
-        im["boxes"] = convert_box(
-            bbox_tag, bboxes, labels, class_names, scores=scores, std=image.shape[:2]
-        )
-        wandb.log({tag: wandb.Image(**im)}, commit=False)
-    elif backend == "file":
-        if work_dir is None:
-            root_dir = os.environ.get("WORK_DIR", ".")
-        else:
-            root_dir = work_dir
-        imshow_det_bboxes(
-            image,
-            bboxes.cpu().detach().numpy(),
-            labels.cpu().detach().numpy(),
-            class_names=class_names,
-            show=False,
-            out_file=os.path.join(root_dir, tag, bbox_tag, filename),
-            label_color=True
-        )
-    else:
-        raise TypeError("backend must be file or wandb")
-
 
 def log_every_n(msg: str, n: int = 50, level: int = logging.DEBUG, backend="auto"):
     """

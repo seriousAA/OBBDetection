@@ -6,7 +6,6 @@ from ..match_costs import build_match_cost
 from ..transforms import bbox_cxcywh_to_xyxy
 from .assign_result import AssignResult
 from .base_assigner import BaseAssigner
-from mmdet.utils.logger import log_image_with_boxes
 try:
     from scipy.optimize import linear_sum_assignment
 except ImportError:
@@ -169,20 +168,6 @@ class HungarianAssigner(BaseAssigner):
            
             gt_and_pos_labels = torch.zeros(gt_and_pos_bboxes.size(0)).long()
             gt_and_pos_labels[gt_bboxes.size(0):] = 1
-
-            img_file = Path(img_meta['filename']).stem
-            log_image_with_boxes(
-                "assigner",
-                img,
-                gt_and_pos_bboxes,
-                bbox_tag="x_gt_and_pos_bbox",
-                labels=gt_and_pos_labels,
-                class_names=class_names,
-                interval=12,
-                img_norm_cfg=img_meta["img_norm_cfg"],
-                work_dir="./work_dirs/dab_detr_r50_8x2_50e_coco/debug",
-                filename=img_file + ".jpg"
-            )
 
         return AssignResult(
             num_gts, assigned_gt_inds, None, labels=assigned_labels)

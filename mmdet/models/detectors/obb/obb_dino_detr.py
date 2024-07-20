@@ -9,7 +9,7 @@ from .obb_single_stage import OBBSingleStageDetector
 
 
 @DETECTORS.register_module()
-class DinoDetrOBB(OBBSingleStageDetector):
+class OBBDinoDETR(OBBSingleStageDetector):
     """Implementation of rotated version 
     `DINO: DETR with Improved DeNoising Anchor Boxes for End-to-End Object Detection
     <https://arxiv.org/abs/2203.03605>`_ for OBB detection."""
@@ -21,7 +21,7 @@ class DinoDetrOBB(OBBSingleStageDetector):
                  test_cfg=None,
                  pretrained=None,
                  init_cfg=None):
-        super(DinoDetrOBB, self).__init__(backbone, None, bbox_head, train_cfg,
+        super(OBBDinoDETR, self).__init__(backbone, None, bbox_head, train_cfg,
                                    test_cfg, pretrained, init_cfg)
     
 

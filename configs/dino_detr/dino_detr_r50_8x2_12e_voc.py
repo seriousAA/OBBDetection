@@ -5,7 +5,7 @@ _base_ = [
 ]
 
 model = dict(
-    type='DINODETR',
+    type='DinoDETR',
     backbone=dict(
         type='ResNet',
         depth=50,
