@@ -19,7 +19,7 @@ from mmdet.models.utils.transformer import inverse_sigmoid
 from ..anchor_free_head import AnchorFreeHead
 
 
-from .dn_components import *
+from ..dn_components import *
 
 class MLP(nn.Module):
     """ Very simple multi-layer perceptron (also called FFN)"""

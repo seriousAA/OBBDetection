@@ -60,7 +60,7 @@ def nchw_to_nlc(x):
     Returns:
         Tensor: The output tensor of shape [N, L, C] after conversion.
     """
-    assert len(x.shape) == 5
+    assert len(x.shape) == 4
     return x.flatten(2).transpose(1, 2).contiguous()
 
 
@@ -395,7 +395,7 @@ class PatchMerging(BaseModule):
             H, W = x.shape[-2:]
 
         x = self.sampler(x)
-        # if kernel_size=2 and stride=2, x should has shape (B, 5*C, H/2*W/2)
+        # if kernel_size=2 and stride=2, x should has shape (B, 4*C, H/2*W/2)
 
         out_h = (H + 2 * self.sampler.padding[0] - self.sampler.dilation[0] *
                  (self.sampler.kernel_size[0] - 1) -
@@ -405,7 +405,7 @@ class PatchMerging(BaseModule):
                  1) // self.sampler.stride[1] + 1
 
         output_size = (out_h, out_w)
-        x = x.transpose(1, 2)  # B, H/2*W/2, 5*C
+        x = x.transpose(1, 2)  # B, H/2*W/2, 4*C
         x = self.norm(x) if self.norm else x
         x = self.reduction(x)
         return x, output_size
@@ -676,7 +676,7 @@ class DeformableDetrTransformerDecoder(TransformerLayerSequence):
                 `(num_query, bs, embed_dims)`.
             reference_points (Tensor): The reference
                 points of offset. has shape
-                (bs, num_query, 5) when as_two_stage,
+                (bs, num_query, 4) when as_two_stage,
                 otherwise has shape ((bs, num_query, 2).
             valid_ratios (Tensor): The radios of valid
                 points on the feature map, has shape
@@ -695,7 +695,7 @@ class DeformableDetrTransformerDecoder(TransformerLayerSequence):
         intermediate = []
         intermediate_reference_points = []
         for lid, layer in enumerate(self.layers):
-            if reference_points.shape[-1] == 5:
+            if reference_points.shape[-1] == 4:
                 reference_points_input = reference_points[:, :, None] * \
                     torch.cat([valid_ratios, valid_ratios], -1)[:, None]
             else:
@@ -711,7 +711,7 @@ class DeformableDetrTransformerDecoder(TransformerLayerSequence):
 
             if reg_branches is not None:
                 tmp = reg_branches[lid](output)
-                if reference_points.shape[-1] == 5:
+                if reference_points.shape[-1] == 4:
                     new_reference_points = tmp + inverse_sigmoid(
                         reference_points)
                     new_reference_points = new_reference_points.sigmoid()
@@ -743,14 +743,14 @@ class DeformableDetrTransformer(Transformer):
         as_two_stage (bool): Generate query from encoder features.
             Default: False.
         num_feature_levels (int): Number of feature maps from FPN:
-            Default: 5.
+            Default: 4.
         two_stage_num_proposals (int): Number of proposals when set
             `as_two_stage` as True. Default: 300.
     """
 
     def __init__(self,
                  as_two_stage=False,
-                 num_feature_levels=5,
+                 num_feature_levels=4,
                  two_stage_num_proposals=300,
                  **kwargs):
         super(DeformableDetrTransformer, self).__init__(**kwargs)
@@ -809,7 +809,7 @@ class DeformableDetrTransformer(Transformer):
                     all levels.
                 - output_proposals (Tensor): The normalized proposal \
                     after a inverse sigmoid, has shape \
-                    (bs, num_keys, 5).
+                    (bs, num_keys, 4).
         """
 
         N, S, C = memory.shape
@@ -832,7 +832,7 @@ class DeformableDetrTransformer(Transformer):
                                valid_H.unsqueeze(-1)], 1).view(N, 1, 1, 2)
             grid = (grid.unsqueeze(0).expand(N, -1, -1, -1) + 0.5) / scale
             wh = torch.ones_like(grid) * 0.05 * (2.0**lvl)
-            proposal = torch.cat((grid, wh), -1).view(N, -1, 5)
+            proposal = torch.cat((grid, wh), -1).view(N, -1, 4)
             proposals.append(proposal)
             _cur += (H * W)
         output_proposals = torch.cat(proposals, 1)
@@ -907,13 +907,13 @@ class DeformableDetrTransformer(Transformer):
         dim_t = torch.arange(
             num_pos_feats, dtype=torch.float32, device=proposals.device)
         dim_t = temperature**(2 * (dim_t // 2) / num_pos_feats)
-        # N, L, 5
+        # N, L, 4
         proposals = proposals.sigmoid() * scale
-        # N, L, 5, 128
+        # N, L, 4, 128
         pos = proposals[:, :, :, None] / dim_t
-        # N, L, 5, 64, 2
+        # N, L, 4, 64, 2
         pos = torch.stack((pos[:, :, :, 0::2].sin(), pos[:, :, :, 1::2].cos()),
-                          dim=5).flatten(2)
+                          dim=4).flatten(2)
         return pos
 
     def forward(self,
@@ -956,7 +956,7 @@ class DeformableDetrTransformer(Transformer):
                       (num_dec_layers, bs, num_query, embed_dims), else has \
                       shape (1, bs, num_query, embed_dims).
                 - init_reference_out: The initial value of reference \
-                    points, has shape (bs, num_queries, 5).
+                    points, has shape (bs, num_queries, 4).
                 - inter_references_out: The internal value of reference \
                     points in decoder, has shape \
                     (num_dec_layers, bs,num_query, embed_dims)
@@ -968,7 +968,7 @@ class DeformableDetrTransformer(Transformer):
                     otherwise None.
                 - enc_outputs_coord_unact: The regression results \
                     generated from encoder's feature maps., has shape \
-                    (batch, h*w, 5). Only would \
+                    (batch, h*w, 4). Only would \
                     be returned when `as_two_stage` is True, \
                     otherwise None.
         """
@@ -1037,7 +1037,7 @@ class DeformableDetrTransformer(Transformer):
                 enc_outputs_class[..., 0], topk, dim=1)[1]
             topk_coords_unact = torch.gather(
                 enc_outputs_coord_unact, 1,
-                topk_proposals.unsqueeze(-1).repeat(1, 1, 5))
+                topk_proposals.unsqueeze(-1).repeat(1, 1, 4))
             topk_coords_unact = topk_coords_unact.detach()
             reference_points = topk_coords_unact.sigmoid()
             init_reference_out = reference_points
@@ -1208,7 +1208,7 @@ def gen_sineembed_for_position(pos_tensor):
     pos_y = torch.stack((pos_y[:, :, 0::2].sin(), pos_y[:, :, 1::2].cos()), dim=3).flatten(2)
     if pos_tensor.size(-1) == 2:
         pos = torch.cat((pos_y, pos_x), dim=2)
-    elif pos_tensor.size(-1) == 5:
+    elif pos_tensor.size(-1) == 4:
         w_embed = pos_tensor[:, :, 2] * scale
         pos_w = w_embed[:, :, None] / dim_t
         pos_w = torch.stack((pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()), dim=3).flatten(2)
@@ -1261,7 +1261,7 @@ def gen_encoder_output_proposals(memory:Tensor, memory_padding_mask:Tensor, spat
         - learnedwh: 2
     Output:
         - output_memory: bs, \sum{hw}, d_model
-        - output_proposals: bs, \sum{hw}, 5
+        - output_proposals: bs, \sum{hw}, 4
     """
     N_, S_, C_ = memory.shape
     proposals = []
@@ -1287,7 +1287,7 @@ def gen_encoder_output_proposals(memory:Tensor, memory_padding_mask:Tensor, spat
             wh = torch.ones_like(grid) * 0.05 * (2.0 ** lvl)
 
      
-        proposal = torch.cat((grid, wh), -1).view(N_, -1, 5)
+        proposal = torch.cat((grid, wh), -1).view(N_, -1, 4)
         proposals.append(proposal)
         _cur += (H_ * W_)
     # import ipdb; ipdb.set_trace()
@@ -1305,7 +1305,7 @@ def gen_encoder_output_proposals(memory:Tensor, memory_padding_mask:Tensor, spat
 
 
 @TRANSFORMER_LAYER.register_module()
-class DINOTransformerEncoderLayer(nn.Module):
+class DinoTransformerEncoderLayer(nn.Module):
     """Implements encoder layer in DINO.
 
     Args:
@@ -1329,9 +1329,9 @@ class DINOTransformerEncoderLayer(nn.Module):
 
     def __init__(self, d_model=256, d_ffn=1024,
                        dropout=0.1, activation='relu',
-                       n_levels=4, n_heads=8, n_points=5,
+                       n_levels=4, n_heads=8, n_points=4,
                        **kwargs):
-        super(DINOTransformerEncoderLayer, self).__init__()
+        super(DinoTransformerEncoderLayer, self).__init__()
         
         # self-attention, in DINO, the encoder's self-attention is
         # implemented with deformable attention
@@ -1371,7 +1371,7 @@ class DINOTransformerEncoderLayer(nn.Module):
         return src
 
 @TRANSFORMER_LAYER_SEQUENCE.register_module()
-class DINOTransformerEncoder(nn.Module):
+class DinoTransformerEncoder(nn.Module):
     def __init__(self, encoder_layer, num_layers, 
                        norm=None, d_model=256, two_stage_type='standard',
                        num_queries=900, deformable_encoder=True, 
@@ -1437,7 +1437,7 @@ class DINOTransformerEncoder(nn.Module):
             - key_padding_mask: [bs, sum(hi*wi)]
 
             - ref_token_index: bs, nq
-            - ref_token_coord: bs, nq, 5
+            - ref_token_coord: bs, nq, 4
         Intermedia:
             - reference_points: [bs, sum(hi*wi), num_level, 2]
         Outpus: 
@@ -1473,10 +1473,10 @@ class DINOTransformerEncoder(nn.Module):
         return output, intermediate_output, intermediate_ref
 
 @TRANSFORMER_LAYER.register_module()
-class DINOTransformerDecoderLayer(nn.Module):
+class DinoTransformerDecoderLayer(nn.Module):
     def __init__(self, d_model=256, d_ffn=1024,
                        dropout=0.1, activation="relu",
-                       n_levels=4, n_heads=8, n_points=5,
+                       n_levels=4, n_heads=8, n_points=4,
                        decoder_sa_type='ca',
                        module_seq=['sa', 'ca', 'ffn'],
                        **kwargs):
@@ -1523,7 +1523,7 @@ class DINOTransformerDecoderLayer(nn.Module):
                          tgt_query_pos: Optional[Tensor] = None, # pos for query. MLP(Sine(pos))
                          tgt_query_sine_embed: Optional[Tensor] = None, # pos for query. Sine(pos)
                          tgt_key_padding_mask: Optional[Tensor] = None,
-                         tgt_reference_points: Optional[Tensor] = None, # nq, bs, 5
+                         tgt_reference_points: Optional[Tensor] = None, # nq, bs, 4
                          memory: Optional[Tensor] = None, # hw, bs, d_model
                          memory_key_padding_mask: Optional[Tensor] = None,
                          memory_level_start_index: Optional[Tensor] = None, # num_levels
@@ -1548,7 +1548,7 @@ class DINOTransformerDecoderLayer(nn.Module):
                          tgt_query_pos: Optional[Tensor] = None, # pos for query. MLP(Sine(pos))
                          tgt_query_sine_embed: Optional[Tensor] = None, # pos for query. Sine(pos)
                          tgt_key_padding_mask: Optional[Tensor] = None,
-                         tgt_reference_points: Optional[Tensor] = None, # nq, bs, 5
+                         tgt_reference_points: Optional[Tensor] = None, # nq, bs, 4
                          memory: Optional[Tensor] = None, # hw, bs, d_model
                          memory_key_padding_mask: Optional[Tensor] = None,
                          memory_level_start_index: Optional[Tensor] = None, # num_levels
@@ -1573,7 +1573,7 @@ class DINOTransformerDecoderLayer(nn.Module):
                       tgt_query_pos: Optional[Tensor] = None, # pos for query. MLP(Sine(pos))
                       tgt_query_sine_embed: Optional[Tensor] = None, # pos for query. Sine(pos)
                       tgt_key_padding_mask: Optional[Tensor] = None,
-                      tgt_reference_points: Optional[Tensor] = None, # nq, bs, 5
+                      tgt_reference_points: Optional[Tensor] = None, # nq, bs, 4
                       memory: Optional[Tensor] = None, # hw, bs, d_model
                       memory_key_padding_mask: Optional[Tensor] = None,
                       memory_level_start_index: Optional[Tensor] = None, # num_levels
@@ -1602,10 +1602,10 @@ class DINOTransformerDecoderLayer(nn.Module):
         return tgt
 
 @TRANSFORMER_LAYER_SEQUENCE.register_module()
-class DINOTransformerDecoder(nn.Module):
+class DinoTransformerDecoder(nn.Module):
     def __init__(self, decoder_layer, num_layers, norm=None, 
                     return_intermediate=False, 
-                    d_model=256, query_dim=5, 
+                    d_model=256, query_dim=4, 
                     modulate_hw_attn=False,
                     num_feature_levels=1,
                     deformable_decoder=False,
@@ -1628,7 +1628,7 @@ class DINOTransformerDecoder(nn.Module):
         self.return_intermediate = return_intermediate
         assert return_intermediate, "support return_intermediate only"
         self.query_dim = query_dim
-        assert query_dim in [2, 4, 5], "query_dim should be 2/4/5 but {}".format(query_dim)
+        assert query_dim in [2, 4], "query_dim should be 2/4 but {}".format(query_dim)
         self.num_feature_levels = num_feature_levels
         self.use_detached_boxes_dec_out = use_detached_boxes_dec_out
 
@@ -1691,7 +1691,7 @@ class DINOTransformerDecoder(nn.Module):
             - tgt: nq, bs, d_model
             - memory: hw, bs, d_model
             - pos: hw, bs, d_model
-            - refpoints_unsigmoid: nq, bs, 2/4/5
+            - refpoints_unsigmoid: nq, bs, 2/4
             - valid_ratios/spatial_shapes: bs, nlevel, 2
         """
         # breakpoint()
@@ -1705,9 +1705,9 @@ class DINOTransformerDecoder(nn.Module):
             # preprocess ref points
     
             if self.deformable_decoder:
-                if reference_points.shape[-1] == 5:
+                if reference_points.shape[-1] == 4:
                     reference_points_input = reference_points[:, :, None] \
-                                            * torch.cat([valid_ratios, valid_ratios], -1)[None, :] # nq, bs, nlevel, 5
+                                            * torch.cat([valid_ratios, valid_ratios], -1)[None, :] # nq, bs, nlevel, 4
                 else:
                     assert reference_points.shape[-1] == 2
                     reference_points_input = reference_points[:, :, None] * valid_ratios[None, :]
@@ -1774,22 +1774,22 @@ class DINOTransformerDecoder(nn.Module):
         ]
 
 @TRANSFORMER.register_module()
-class DINOTransformer(nn.Module):
-    def __init__(self, d_model=512, nhead=8, 
-                       num_queries=1000, 
+class DinoTransformer(nn.Module):
+    def __init__(self, d_model=256, nhead=8, 
+                       num_queries=900, 
                        num_encoder_layers=6,
                        num_decoder_layers=6, 
                        dim_feedforward=2048, dropout=0.0,
                        activation="relu", normalize_before=False,
-                       return_intermediate_dec=True, query_dim=5,
+                       return_intermediate_dec=True, query_dim=4,
                        num_patterns=0,
                        modulate_hw_attn=True,
                        # for deformable encoder
                        deformable_encoder=True,
                        deformable_decoder=True,
                        num_feature_levels=4,
-                       enc_n_points=5,
-                       dec_n_points=5,
+                       enc_n_points=4,
+                       dec_n_points=4,
                        # init query
                        learnable_tgt_init=True,
                        decoder_query_perturber=None,
@@ -1797,8 +1797,7 @@ class DINOTransformer(nn.Module):
                        add_pos_value=False,
                        random_refpoints_xy=False,
                        # two stage
-                       # ['no', 'standard', 'early', 'combine', 'enceachlayer', 'enclayer1']
-                       two_stage_type='standard', 
+                       two_stage_type='standard', # ['no', 'standard', 'early', 'combine', 'enceachlayer', 'enclayer1']
                        two_stage_pat_embed=0,
                        two_stage_add_query_num=0,
                        two_stage_learn_wh=False,
@@ -1905,7 +1904,7 @@ class DINOTransformer(nn.Module):
         self.num_queries = num_queries
         self.random_refpoints_xy = random_refpoints_xy
         self.use_detached_boxes_dec_out = use_detached_boxes_dec_out
-        assert query_dim == 5
+        assert query_dim == 4
 
         if num_feature_levels > 1:
             assert deformable_encoder, "only support deformable_encoder for num_feature_levels > 1"
@@ -1927,14 +1926,14 @@ class DINOTransformer(nn.Module):
 
         # choose encoder layer type
         if deformable_encoder:
-            encoder_layer = DINOTransformerEncoderLayer(d_model, dim_feedforward,
+            encoder_layer = DinoTransformerEncoderLayer(d_model, dim_feedforward,
                                                           dropout, activation,
                                                           num_feature_levels, nhead, enc_n_points, 
                                                           add_channel_attention=add_channel_attention)
         else:
             raise NotImplementedError
         encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
-        self.encoder = DINOTransformerEncoder(
+        self.encoder = DinoTransformerEncoder(
             encoder_layer, num_encoder_layers, 
             encoder_norm, d_model=d_model, 
             num_queries=num_queries,
@@ -1945,7 +1944,7 @@ class DINOTransformer(nn.Module):
 
         # choose decoder layer type
         if deformable_decoder:
-            decoder_layer = DINOTransformerDecoderLayer(d_model, dim_feedforward,
+            decoder_layer = DinoTransformerDecoderLayer(d_model, dim_feedforward,
                                                           dropout, activation,
                                                           num_feature_levels, nhead, dec_n_points, 
                                                           key_aware_type=key_aware_type,
@@ -1956,7 +1955,7 @@ class DINOTransformer(nn.Module):
             raise NotImplementedError
 
         decoder_norm = nn.LayerNorm(d_model)
-        self.decoder = DINOTransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm,
+        self.decoder = DinoTransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm,
                                         return_intermediate=return_intermediate_dec,
                                         d_model=d_model, query_dim=query_dim, 
                                         modulate_hw_attn=modulate_hw_attn,
@@ -2049,7 +2048,7 @@ class DINOTransformer(nn.Module):
         return valid_ratio
 
     def init_ref_points(self, use_num_queries):
-        self.refpoint_embed = nn.Embedding(use_num_queries, 5)
+        self.refpoint_embed = nn.Embedding(use_num_queries, 4)
         
         if self.random_refpoints_xy:
             # import ipdb; ipdb.set_trace()
@@ -2062,7 +2061,7 @@ class DINOTransformer(nn.Module):
         Input:
             - srcs: List of multi features [bs, ci, hi, wi]
             - masks: List of multi masks [bs, hi, wi]
-            - refpoint_embed: [bs, num_dn, 5]. None in infer
+            - refpoint_embed: [bs, num_dn, 4]. None in infer
             - pos_embeds: List of multi pos embeds [bs, ci, hi, wi]
             - tgt: [bs, num_dn, d_model]. None in infer
             
@@ -2113,7 +2112,7 @@ class DINOTransformer(nn.Module):
                 valid_ratios=valid_ratios,
                 key_padding_mask=mask_flatten,
                 ref_token_index=enc_topk_proposals, # bs, nq 
-                ref_token_coord=enc_refpoint_embed, # bs, nq, 5
+                ref_token_coord=enc_refpoint_embed, # bs, nq, 4
                 )
     
 
@@ -2125,15 +2124,15 @@ class DINOTransformer(nn.Module):
             
            
             enc_outputs_class_unselected = fc_enc_cls(output_memory)
-            enc_outputs_coord_unselected = fc_enc_reg(output_memory) + output_proposals # [bs, \sum{hw}, 5] unsigmoid, output_proposlas maybe have inf value
+            enc_outputs_coord_unselected = fc_enc_reg(output_memory) + output_proposals # [bs, \sum{hw}, 4] unsigmoid, output_proposlas maybe have inf value
             topk = self.num_queries
             topk_proposals = torch.topk(enc_outputs_class_unselected.max(-1)[0], topk, dim=1)[1] # [bs, topk] is the index value
             
 
             # gather boxes
-            refpoint_embed_undetach = torch.gather(enc_outputs_coord_unselected, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, 5)) # unsigmoid [bs, topk, 5]
+            refpoint_embed_undetach = torch.gather(enc_outputs_coord_unselected, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, 4)) # unsigmoid [bs, topk, 4]
             refpoint_embed_ = refpoint_embed_undetach.detach()
-            init_box_proposal = torch.gather(output_proposals, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, 5)).sigmoid() # sigmoid [bs, topk, 5]
+            init_box_proposal = torch.gather(output_proposals, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, 4)).sigmoid() # sigmoid [bs, topk, 4]
 
             # gather tgt
             tgt_undetach = torch.gather(output_memory, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, self.d_model))
@@ -2152,7 +2151,7 @@ class DINOTransformer(nn.Module):
 
         elif self.two_stage_type == 'no':
             tgt_ = self.tgt_embed.weight[:self.num_queries, None, :].repeat(1, bs, 1).transpose(0, 1)                 # nq, bs, d_model
-            refpoint_embed_ = self.refpoint_embed.weight[:self.num_queries, None, :].repeat(1, bs, 1).transpose(0, 1) # nq, bs, 5
+            refpoint_embed_ = self.refpoint_embed.weight[:self.num_queries, None, :].repeat(1, bs, 1).transpose(0, 1) # nq, bs, 4
 
             if refpoint_embed is not None:
                 refpoint_embed = torch.cat([refpoint_embed,refpoint_embed_],dim=1)
@@ -2200,15 +2199,15 @@ class DINOTransformer(nn.Module):
             # hs_enc: [n_enc+1, bs, nq, d_model] or [1, bs, nq, d_model] or [n_enc, bs, nq, d_model] or None
             # ref_enc: [n_enc+1, bs, nq, query_dim] or [1, bs, nq, query_dim] or [n_enc, bs, nq, d_model] or None
             hs_enc = tgt_undetach.unsqueeze(0)  # [1, 2, 900, 256], 这里只有two stage产生的topk的encoder embedding
-            ref_enc = refpoint_embed_undetach.sigmoid().unsqueeze(0) # [1, 2, 900, 5]
+            ref_enc = refpoint_embed_undetach.sigmoid().unsqueeze(0) # [1, 2, 900, 4]
         else:
             hs_enc = ref_enc = None 
 
         # hs: (n_dec, bs, nq, d_model)
-        # references: sigmoid coordinates. (n_dec+1, bs, bq, 5)
+        # references: sigmoid coordinates. (n_dec+1, bs, bq, 4)
         # hs_enc: (n_enc+1, bs, nq, d_model) or (1, bs, nq, d_model) or None
         # ref_enc: sigmoid coordinates. (n_enc+1, bs, nq, query_dim) or (1, bs, nq, query_dim) or None
-        return hs, references, hs_enc, ref_enc, init_box_proposal   # init_box_proposal: [2, 900, 5]
+        return hs, references, hs_enc, ref_enc, init_box_proposal   # init_box_proposal: [2, 900, 4]
 
 
     def forward_with_query(self, srcs, masks, refpoint_embed_, pos_embeds, tgt_, attn_mask=None, fc_reg=None, fc_cls=None, fc_enc_reg=None, fc_enc_cls=None):                                                                
@@ -2216,7 +2215,7 @@ class DINOTransformer(nn.Module):
         Input:
             - srcs: List of multi features [bs, ci, hi, wi]
             - masks: List of multi masks [bs, hi, wi]
-            - refpoint_embed: [num_consistency_query, 5]. 
+            - refpoint_embed: [num_consistency_query, 4]. 
             - pos_embeds: List of multi pos embeds [bs, ci, hi, wi]
             - tgt: [num_consistency_query, d_model].
         """
@@ -2268,10 +2267,10 @@ class DINOTransformer(nn.Module):
     
 
         tgt = tgt_[:, None, :].repeat(1, bs, 1).transpose(0, 1)                         # (num_consistency_query, bs, d_model)
-        refpoint_embed = refpoint_embed_[:, None, :].repeat(1, bs, 1).transpose(0, 1)   # (num_consistency_query, bs, 5)
+        refpoint_embed = refpoint_embed_[:, None, :].repeat(1, bs, 1).transpose(0, 1)   # (num_consistency_query, bs, 4)
 
         # hs: [n_dec, bs, nq, d_model]
-        # references: [n_dec+1, bs, nq, 5], sigmoid normalized (cx, cy, w, h) format
+        # references: [n_dec+1, bs, nq, 4], sigmoid normalized (cx, cy, w, h) format
         hs, references = self.decoder(
                                 tgt=tgt.transpose(0, 1), 
                                 memory=memory.transpose(0, 1), 
@@ -2284,4 +2283,4 @@ class DINOTransformer(nn.Module):
                                 fc_reg=fc_reg,
                                 fc_cls=fc_cls)
         return hs, references
- 
+    

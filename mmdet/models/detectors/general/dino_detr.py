@@ -4,7 +4,7 @@ import warnings
 import torch
 
 from mmdet.models.builder import DETECTORS
-from mmdet.models.detectors.single_stage import SingleStageDetector
+from ..single_stage import SingleStageDetector
 
 
 

@@ -31,6 +31,8 @@ from .obb.oriented_rpn_head import OrientedRPNHead
 from .obb.obb_fcos_head import OBBFCOSHead
 from .obb.s2a_head import S2AHead
 from .obb.odm_head import ODMHead
+from .obb.dn_components_obb import (prepare_for_cdn_plus_obb, prepare_for_cdn_ssod_obb,
+                                        dn_post_process_plus_obb)
 
 __all__ = [
     'AnchorFreeHead', 'AnchorHead', 'GuidedAnchorHead', 'FeatureAdaption',
@@ -41,5 +43,6 @@ __all__ = [
     'DETRHead', 'DeformableDETRHead', 'OBBAnchorHead', 'OBBRetinaHead',
     'OBBAnchorFreeHead', 'OrientedRPNHead', 'OBBFCOSHead', 'S2AHead',
     'ODMHead', 'prepare_for_cdn', 'prepare_for_cdn_plus', 'prepare_for_cdn_ssod',
-    'dn_post_process', 'dn_post_process_plus'
+    'dn_post_process', 'dn_post_process_plus', 'prepare_for_cdn_plus_obb',
+    'prepare_for_cdn_ssod_obb', 'dn_post_process_plus_obb'
 ]
