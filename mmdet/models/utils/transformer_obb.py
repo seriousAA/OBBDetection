@@ -396,7 +396,7 @@ class OBBDinoTransformerDecoderLayer(nn.Module):
 class OBBDinoTransformerDecoder(nn.Module):
     def __init__(self, decoder_layer, num_layers, norm=None, 
                     return_intermediate=False, 
-                    d_model=256, query_dim=4, 
+                    d_model=256, query_dim=5, 
                     modulate_hw_attn=False,
                     num_feature_levels=1,
                     deformable_decoder=False,
@@ -504,9 +504,9 @@ class OBBDinoTransformerDecoder(nn.Module):
                 else:
                     assert reference_points.shape[-1] == 2
                     reference_points_input = reference_points[:, :, None] * valid_ratios[None, :]
-                query_sine_embed = gen_sineembed_for_position(reference_points_input[:, :, 0, :]) # nq, bs, 256*2 
+                query_sine_embed = gen_sineembed_for_position(reference_points_input[:, :, 0, :4]) # nq, bs, 256*2 
             else:
-                query_sine_embed = gen_sineembed_for_position(reference_points) # nq, bs, 256*2
+                query_sine_embed = gen_sineembed_for_position(reference_points[..., :4]) # nq, bs, 256*2
                 reference_points_input = None
 
             # conditional query
@@ -568,13 +568,13 @@ class OBBDinoTransformerDecoder(nn.Module):
 
 @TRANSFORMER.register_module()
 class OBBDinoTransformer(nn.Module):
-    def __init__(self, d_model=512, nhead=8, 
+    def __init__(self, d_model=256, nhead=8, 
                        num_queries=1000, 
                        num_encoder_layers=6,
                        num_decoder_layers=6, 
                        dim_feedforward=2048, dropout=0.0,
                        activation="relu", normalize_before=False,
-                       return_intermediate_dec=True, query_dim=4,
+                       return_intermediate_dec=True, query_dim=5,
                        num_patterns=0,
                        modulate_hw_attn=True,
                        # for deformable encoder
@@ -698,7 +698,7 @@ class OBBDinoTransformer(nn.Module):
         self.num_queries = num_queries
         self.random_refpoints_xy = random_refpoints_xy
         self.use_detached_boxes_dec_out = use_detached_boxes_dec_out
-        assert query_dim == 4
+        assert query_dim == 5
 
         if num_feature_levels > 1:
             assert deformable_encoder, "only support deformable_encoder for num_feature_levels > 1"
