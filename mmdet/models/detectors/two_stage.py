@@ -140,6 +140,7 @@ class TwoStageDetector(BaseDetector):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+        super(TwoStageDetector, self).forward_train(img, img_metas)
         x = self.extract_feat(img)
 
         losses = dict()

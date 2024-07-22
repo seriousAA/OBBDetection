@@ -126,7 +126,7 @@ def prepare_for_cdn(dn_args, training, num_queries, num_classes, hidden_dim, lab
 
 
 def prepare_for_cdn_plus(dn_args, training, num_queries, num_classes, hidden_dim, label_enc):
-    """ A extend version of the original prepare_for_cnd function which can deal with the situation of 
+    """ A extend version of the original prepare_for_cdn function which can deal with the situation of 
     there is no situation within a image.
     """
     if training:
@@ -145,8 +145,8 @@ def prepare_for_cdn_plus(dn_args, training, num_queries, num_classes, hidden_dim
                 # if there is no gt bbox in this image, we randomly generate a 
                 # gt bbox and gt label for this image
                 # bbox is the normalized cx, cy, w, h format
-                tmp_bboxes = torch.tensor([[0.5, 0.5, 0.5, 0.5]]).cuda()
-                tmp_labels = torch.randint(0, 80, (1,)).long().cuda()
+                tmp_bboxes = torch.tensor([[0.5, 0.5, 0.5, 0.5, 0.]]).cuda()
+                tmp_labels = torch.randint(0, num_classes, (1,)).long().cuda()
 
                 gt_bboxes.append(tmp_bboxes)
                 gt_labels.append(tmp_labels)
@@ -205,12 +205,13 @@ def prepare_for_cdn_plus(dn_args, training, num_queries, num_classes, hidden_dim
         negative_idx = positive_idx + len(boxes)
         if box_noise_scale > 0:
             known_bbox_ = torch.zeros_like(known_bboxs)
-            known_bbox_[:, :2] = known_bboxs[:, :2] - known_bboxs[:, 2:] / 2
-            known_bbox_[:, 2:] = known_bboxs[:, :2] + known_bboxs[:, 2:] / 2
+            known_bbox_[:, :2] = known_bboxs[:, :2] - known_bboxs[:, 2:4] / 2
+            known_bbox_[:, 2:4] = known_bboxs[:, :2] + known_bboxs[:, 2:4] / 2
+            known_bbox_[:, 4] = known_bboxs[:, 4]
 
             diff = torch.zeros_like(known_bboxs)
-            diff[:, :2] = known_bboxs[:, 2:] / 2
-            diff[:, 2:] = known_bboxs[:, 2:] / 2
+            diff[:, :2] = known_bboxs[:, 2:4] / 2
+            diff[:, 2:4] = known_bboxs[:, 2:4] / 2
 
             rand_sign = torch.randint_like(known_bboxs, low=0, high=2, dtype=torch.float32) * 2.0 - 1.0
             rand_part = torch.rand_like(known_bboxs)
@@ -219,15 +220,15 @@ def prepare_for_cdn_plus(dn_args, training, num_queries, num_classes, hidden_dim
             known_bbox_ = known_bbox_ + torch.mul(rand_part,
                                                   diff).cuda() * box_noise_scale
             known_bbox_ = known_bbox_.clamp(min=0.0, max=1.0)
-            known_bbox_expand[:, :2] = (known_bbox_[:, :2] + known_bbox_[:, 2:]) / 2
-            known_bbox_expand[:, 2:] = known_bbox_[:, 2:] - known_bbox_[:, :2]
+            known_bbox_expand[:, :2] = (known_bbox_[:, :2] + known_bbox_[:, 2:4]) / 2
+            known_bbox_expand[:, 2:4] = known_bbox_[:, 2:4] - known_bbox_[:, :2]
 
         m = known_labels_expaned.long().to('cuda')
         input_label_embed = label_enc(m)
         input_bbox_embed = inverse_sigmoid(known_bbox_expand)
 
         padding_label = torch.zeros(pad_size, hidden_dim).cuda()
-        padding_bbox = torch.zeros(pad_size, 4).cuda()
+        padding_bbox = torch.zeros(pad_size, 5).cuda()
 
         input_query_label = padding_label.repeat(batch_size, 1, 1)
         input_query_bbox = padding_bbox.repeat(batch_size, 1, 1)

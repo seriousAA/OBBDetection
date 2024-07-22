@@ -79,7 +79,12 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
                 :class:`mmdet.datasets.pipelines.Collect`.
             kwargs (keyword arguments): Specific to concrete implementation.
         """
-        pass
+        # NOTE the batched image size information may be useful, e.g.
+        # in DETR, this is needed for the construction of masks, which is
+        # then used for the transformer_head.
+        batch_input_shape = tuple(imgs[0].size()[-2:])
+        for img_meta in img_metas:
+            img_meta['batch_input_shape'] = batch_input_shape
 
     async def async_simple_test(self, img, img_metas, **kwargs):
         raise NotImplementedError

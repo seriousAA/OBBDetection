@@ -236,11 +236,11 @@ class SinePositionalEncodingHW(BaseModule):
 
         dim_tx = torch.arange(
             self.num_feats, dtype=torch.float32, device=mask.device)
-        dim_tx = self.temperatureW**(2 * (dim_tx // 2) / self.num_feats)
+        dim_tx = self.temperatureW**(2 * torch.div(dim_tx, 2, rounding_mode='trunc') / self.num_feats)
         pos_x = x_embed[:, :, :, None] / dim_tx
         dim_ty = torch.arange(
             self.num_feats, dtype=torch.float32, device=mask.device)
-        dim_ty = self.temperatureH ** (2 * (dim_ty // 2) / self.num_feats)
+        dim_ty = self.temperatureH ** (2 * torch.div(dim_ty, 2, rounding_mode='trunc') / self.num_feats)
         pos_y = y_embed[:, :, :, None] / dim_ty
 
         # use `view` instead of `flatten` for dynamically exporting to ONNX
