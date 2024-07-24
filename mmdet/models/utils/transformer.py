@@ -1757,7 +1757,7 @@ class DinoTransformerDecoder(nn.Module):
                 
                 reference_before_sigmoid = inverse_sigmoid(reference_points)
                 delta_unsig = fc_reg[layer_id](output)
-                outputs_unsig = delta_unsig + reference_before_sigmoid
+                outputs_unsig = delta_unsig[..., :4] + reference_before_sigmoid
                 new_reference_points = outputs_unsig.sigmoid()
 
     
