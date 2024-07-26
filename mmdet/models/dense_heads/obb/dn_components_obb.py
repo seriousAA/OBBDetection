@@ -174,7 +174,7 @@ def prepare_for_cdn_ssod_obb(dn_args, training, num_queries, num_classes, hidden
                 # gt bbox and gt label for this image
                 # bbox is the normalized cx, cy, w, h format
                 tmp_bboxes = torch.tensor([[0.5, 0.5, 0.5, 0.5]]).cuda()
-                tmp_labels = torch.randint(0, 80, (1,)).long().cuda()
+                tmp_labels = torch.randint(0, num_classes, (1,)).long().cuda()
 
                 gt_bboxes.append(tmp_bboxes)
                 gt_labels.append(tmp_labels)

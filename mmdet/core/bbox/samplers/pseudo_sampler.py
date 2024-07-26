@@ -1,9 +1,8 @@
 import torch
-
 from ..builder import BBOX_SAMPLERS
 from .base_sampler import BaseSampler
 from .sampling_result import SamplingResult
-
+from .obb.obb_sampling_result import OBBSamplingResult
 
 @BBOX_SAMPLERS.register_module()
 class PseudoSampler(BaseSampler):
@@ -36,6 +35,12 @@ class PseudoSampler(BaseSampler):
         neg_inds = torch.nonzero(
             assign_result.gt_inds == 0, as_tuple=False).squeeze(-1).unique()
         gt_flags = bboxes.new_zeros(bboxes.shape[0], dtype=torch.uint8)
-        sampling_result = SamplingResult(pos_inds, neg_inds, bboxes, gt_bboxes,
+        
+        assert gt_bboxes.shape[-1] in [4, 5]
+        if gt_bboxes.shape[-1] == 4:
+            sampling_result = SamplingResult(pos_inds, neg_inds, bboxes, gt_bboxes,
+                                         assign_result, gt_flags)
+        else:
+            sampling_result = OBBSamplingResult(pos_inds, neg_inds, bboxes, gt_bboxes,
                                          assign_result, gt_flags)
         return sampling_result

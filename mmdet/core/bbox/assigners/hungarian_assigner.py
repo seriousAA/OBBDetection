@@ -1,9 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch
+import numpy as np
 from pathlib import Path
 from ..builder import BBOX_ASSIGNERS
 from ..match_costs import build_match_cost
 from ..transforms import bbox_cxcywh_to_xyxy
+from ..transforms_obb import bbox2type
 from .assign_result import AssignResult
 from .base_assigner import BaseAssigner
 try:
@@ -58,6 +60,7 @@ class HungarianAssigner(BaseAssigner):
                gt_labels,
                img_meta,
                gt_bboxes_ignore=None,
+               bbox_type='hbb',
                eps=1e-7):
         """Computes one-to-one matching based on the weighted costs.
 
@@ -112,7 +115,11 @@ class HungarianAssigner(BaseAssigner):
             return AssignResult(
                 num_gts, assigned_gt_inds, None, labels=assigned_labels)
         img_h, img_w, _ = img_meta['img_shape']
-        factor = gt_bboxes.new_tensor([img_w, img_h, img_w,
+        if bbox_type == 'obb':
+            factor = gt_bboxes.new_tensor([img_w, img_h, img_w,
+                                       img_h, np.pi]).unsqueeze(0)
+        else:
+            factor = gt_bboxes.new_tensor([img_w, img_h, img_w,
                                        img_h]).unsqueeze(0)
 
         # 2. compute the weighted costs
@@ -120,10 +127,18 @@ class HungarianAssigner(BaseAssigner):
         cls_cost = self.cls_cost(cls_pred, gt_labels)
         # regression L1 cost
         normalize_gt_bboxes = gt_bboxes / factor
+        if bbox_type == 'obb':
+            temp_delta = gt_bboxes.new_tensor([0., 0., 0., 0., 0.5]).unsqueeze(0)
+            normalize_gt_bboxes += temp_delta
         reg_cost = self.reg_cost(bbox_pred, normalize_gt_bboxes)
         # regression iou cost, defaultly giou is used in official DETR.
-        bboxes = bbox_cxcywh_to_xyxy(bbox_pred) * factor
-        iou_cost = self.iou_cost(bboxes, gt_bboxes)
+        if bbox_type == 'obb':
+            bboxes = (bbox_pred - temp_delta) * factor
+            iou_cost = self.iou_cost(bbox2type(bboxes, 'hbb'), 
+                                     bbox2type(gt_bboxes, 'hbb'))
+        else:
+            bboxes = bbox_cxcywh_to_xyxy(bbox_pred * factor)
+            iou_cost = self.iou_cost(bboxes, gt_bboxes)
         # weighted sum of above three costs
         cost = cls_cost + reg_cost + iou_cost
 
