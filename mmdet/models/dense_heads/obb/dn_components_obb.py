@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from mmdet.models.utils.transformer import inverse_sigmoid
+from ..general.dn_components import *
 
 
 def prepare_for_cdn_plus_obb(dn_args, training, num_queries, num_classes, hidden_dim, label_enc):
