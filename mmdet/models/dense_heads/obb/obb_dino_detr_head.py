@@ -106,8 +106,7 @@ class OBBDinoDETRHead(AnchorFreeHead):
                         type='HungarianAssigner',
                         cls_cost=dict(type='FocalLossCost', weight=1.0),
                         reg_cost=dict(type='BBoxL1Cost', weight=2.0, box_format='obb'),
-                        iou_cost=dict(type='IoUCost', iou_mode='giou', weight=0.5),
-                        debug=False)),
+                        iou_cost=dict(type='IoUCost', iou_mode='giou', weight=0.5))),
                  test_cfg=dict(max_per_img=100),
                  **kwargs):
         # NOTE here use `AnchorFreeHead` instead of `TransformerHead`,

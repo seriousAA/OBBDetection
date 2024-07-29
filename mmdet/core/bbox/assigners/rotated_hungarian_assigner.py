@@ -1,9 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch
+import numpy as np
 from pathlib import Path
 from ..builder import BBOX_ASSIGNERS
 from ..match_costs import build_match_cost
 from ..transforms import bbox_cxcywh_to_xyxy
+from ..transforms_obb import bbox2type
 from .assign_result import AssignResult
 from .base_assigner import BaseAssigner
 try:
@@ -13,7 +15,7 @@ except ImportError:
 
 
 @BBOX_ASSIGNERS.register_module()
-class HungarianAssigner(BaseAssigner):
+class RotatedHungarianAssigner(BaseAssigner):
     """Computes one-to-one matching between predictions and ground truth.
 
     This class computes an assignment between the targets and the predictions
@@ -43,13 +45,13 @@ class HungarianAssigner(BaseAssigner):
 
     def __init__(self,
                  cls_cost=dict(type='ClassificationCost', weight=1.),
-                 reg_cost=dict(type='BBoxL1Cost', weight=1.0),
-                 iou_cost=dict(type='IoUCost', iou_mode='giou', weight=1.0), debug=False):
+                reg_cost=dict(type='BBoxL1Cost', weight=1.0, box_format='obb'),
+                iou_cost=dict(type='RotatedIoUCost', iou_mode='iou', weight=1.0),
+                iou_cost_hbb=dict(type='IoUCost', iou_mode='giou', weight=1.0)):
         self.cls_cost = build_match_cost(cls_cost)
         self.reg_cost = build_match_cost(reg_cost)
         self.iou_cost = build_match_cost(iou_cost)
-
-        self.debug = debug
+        self.iou_cost_hbb = build_match_cost(iou_cost_hbb)
 
     def assign(self,
                bbox_pred,
@@ -58,6 +60,7 @@ class HungarianAssigner(BaseAssigner):
                gt_labels,
                img_meta,
                gt_bboxes_ignore=None,
+               bbox_type='hbb',
                eps=1e-7):
         """Computes one-to-one matching based on the weighted costs.
 
@@ -112,7 +115,11 @@ class HungarianAssigner(BaseAssigner):
             return AssignResult(
                 num_gts, assigned_gt_inds, None, labels=assigned_labels)
         img_h, img_w, _ = img_meta['img_shape']
-        factor = gt_bboxes.new_tensor([img_w, img_h, img_w,
+        if bbox_type == 'obb':
+            factor = gt_bboxes.new_tensor([img_w, img_h, img_w,
+                                       img_h, np.pi]).unsqueeze(0)
+        else:
+            factor = gt_bboxes.new_tensor([img_w, img_h, img_w,
                                        img_h]).unsqueeze(0)
 
         # 2. compute the weighted costs
@@ -120,10 +127,17 @@ class HungarianAssigner(BaseAssigner):
         cls_cost = self.cls_cost(cls_pred, gt_labels)
         # regression L1 cost
         normalize_gt_bboxes = gt_bboxes / factor
+        if bbox_type == 'obb':
+            temp_delta = gt_bboxes.new_tensor([0., 0., 0., 0., 0.5]).unsqueeze(0)
+            normalize_gt_bboxes += temp_delta
         reg_cost = self.reg_cost(bbox_pred, normalize_gt_bboxes)
         # regression iou cost, defaultly giou is used in official DETR.
-        bboxes = bbox_cxcywh_to_xyxy(bbox_pred) * factor
-        iou_cost = self.iou_cost(bboxes, gt_bboxes)
+        if bbox_type == 'obb':
+            bboxes = (bbox_pred - temp_delta) * factor
+            iou_cost = self.iou_cost(bboxes, gt_bboxes)
+        else:
+            bboxes = bbox_cxcywh_to_xyxy(bbox_pred * factor)
+            iou_cost = self.iou_cost_hbb(bboxes, gt_bboxes)
         # weighted sum of above three costs
         cost = cls_cost + reg_cost + iou_cost
 
@@ -144,44 +158,6 @@ class HungarianAssigner(BaseAssigner):
         # assign foregrounds based on matching results
         assigned_gt_inds[matched_row_inds] = matched_col_inds + 1
         assigned_labels[matched_row_inds] = gt_labels[matched_col_inds]
-
-        # 
-        # # 可视化Assign之后得到正样本Proposal
-        # if self.debug:
-        #     # 可视化GT Box和分配的正负样本Proposal
-        #     img = img_meta['img']
-        #     bboxes = bbox_cxcywh_to_xyxy(bbox_pred) * factor
-
-        #     # 获得并可视化分配的正样本的Proposal
-        #     pos_assigned_gt_inds = matched_col_inds
-        #     pos_gt_bboxes = gt_bboxes[pos_assigned_gt_inds, :]
-        #     pos_bboxes = bboxes[matched_row_inds, :]  
-
-        #     # 只有1个正样本，需要注意维度变化
-        #     if pos_bboxes.ndim < 2:
-        #         pos_bboxes = pos_bboxes[None, :]
-            
-        #     # 把GT Box和正样本Proposal放到一起进行可视化
-        #     class_names = ['Gt Box', 'Pos Box']
-            
-        #     gt_and_pos_bboxes = torch.cat([gt_bboxes, pos_bboxes])
-           
-        #     gt_and_pos_labels = torch.zeros(gt_and_pos_bboxes.size(0)).long()
-        #     gt_and_pos_labels[gt_bboxes.size(0):] = 1
-
-        #     img_file = Path(img_meta['filename']).stem
-        #     log_image_with_boxes(
-        #         "assigner",
-        #         img,
-        #         gt_and_pos_bboxes,
-        #         bbox_tag="x_gt_and_pos_bbox",
-        #         labels=gt_and_pos_labels,
-        #         class_names=class_names,
-        #         interval=12,
-        #         img_norm_cfg=img_meta["img_norm_cfg"],
-        #         work_dir="./work_dirs/dab_detr_r50_8x2_50e_coco/debug",
-        #         filename=img_file + ".jpg"
-        #     )
 
         return AssignResult(
             num_gts, assigned_gt_inds, None, labels=assigned_labels)
