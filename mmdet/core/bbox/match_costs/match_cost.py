@@ -4,6 +4,7 @@ from ..iou_calculators import bbox_overlaps
 from ..transforms import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 from ..transforms_obb import bbox2type
 from .builder import MATCH_COST
+from mmdet.ops import obb_overlaps
 
 
 @MATCH_COST.register_module()
@@ -353,3 +354,45 @@ class KLDivCost:
         cls_cost = cls_cost * tgt_scores[None, :].repeat(num_pred, 1)
         # 用avg_factor来计算平均值
         return cls_cost * self.weight
+    
+
+@MATCH_COST.register_module()
+class RotatedIoUCost:
+    """
+    RotatedIoUCost.
+    Args:
+        iou_mode (str, optional): iou mode such as 'iou' | 'iof'
+        weight (int | float, optional): loss weight
+    Examples:
+        >>> from mmdet.core.bbox.match_costs.match_cost import RotatedIoUCost
+        >>> import torch
+        >>> self = RotatedIoUCost()
+        >>> bboxes = torch.FloatTensor([[1,1, 2, 2, 0], [2, 2, 3, 4, 0]])
+        >>> gt_bboxes = torch.FloatTensor([[0, 0, 2, 4, 0], [1, 2, 3, 4, 0]])
+        >>> self(bboxes, gt_bboxes)
+        tensor([[-0.1250,  0.1667],
+                [ 0.1667, -0.5000]])
+    Returns:
+        torch.Tensor: iou_cost value with weight
+    """
+
+    def __init__(self, iou_mode='iou', weight=1.):
+        self.weight = weight
+        self.iou_mode = iou_mode
+
+    def __call__(self, bboxes, gt_bboxes):
+        """
+        Args:
+            bbox_pred (Tensor): Predicted boxes with unnormalized coordinates
+                (cx, cy, w, h, angle). Shape [num_query, 5].
+            gt_bboxes (Tensor): Ground truth boxes with unnormalized coordinates
+                (cx, cy, w, h, angle). Shape [num_gt, 5].
+
+        Returns:
+            torch.Tensor: iou_cost value with weight
+        """
+        # overlaps: [num_bboxes, num_gt]
+        overlaps = obb_overlaps(bboxes, gt_bboxes, mode=self.iou_mode, is_aligned=False)
+        # The 1 is a constant that doesn't change the matching, so omitted.
+        iou_cost = -overlaps
+        return iou_cost * self.weight
