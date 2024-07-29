@@ -272,12 +272,19 @@ class DOTADataset(CustomDataset):
                 logger=logger,
                 nproc=nproc)
             eval_results['mAP'] = mean_ap
-            eval_results['results'] = [
-                {'class': self.CLASSES[i], **{k: (np.array(v, ndmin=2)[:, -1].item()
-                                                      if k == 'recall' else v) for k, v in stat.items() 
-                                                  if k != 'precision'}}
-                for i, stat in enumerate(stats)
-            ]
+            eval_results['results'] = []
+
+            for i, stat in enumerate(stats):
+                result = {'class': self.CLASSES[i]}
+                for k, v in stat.items():
+                    if k != 'precision':
+                        if k == 'recall':
+                            temp = np.array(v, ndmin=2)
+                            result[k] = temp[:, -1].item() if temp.size > 0 else 0.
+                        else:
+                            result[k] = v
+                eval_results['results'].append(result)
+                
         elif metric == 'recall':
             assert mmcv.is_list_of(results, np.ndarray)
             gt_bboxes = []
