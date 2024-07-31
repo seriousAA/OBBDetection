@@ -94,6 +94,7 @@ class DOTADataset(CustomDataset):
                        iou_thr=0.5,
                        nproc=10,
                        save_dir=None,
+                       non_cuda_parallel=False,
                        **kwargs):
         nproc = min(nproc, os.cpu_count())
         task = self.task
@@ -186,7 +187,7 @@ class DOTADataset(CustomDataset):
             
             tough_tasks = [task for task, flag in zip(tasks, count_results) if flag]
             print("Accelerate the tough tasks by cuda using GPU.")
-            if calculate_nproc_gpu_source() < 2:
+            if calculate_nproc_gpu_source() < 2 or non_cuda_parallel:
                 tough_results = mmcv.track_progress(
                     merge_func, (collector.items(), len(collector)))
             else:
@@ -215,7 +216,8 @@ class DOTADataset(CustomDataset):
                  scale_ranges=None,
                  eval_iou_thr=[0.5],
                  proposal_nums=(2000,),
-                 nproc=10):
+                 nproc=10,
+                 non_cuda_parallel=False):
         nproc = min(nproc, os.cpu_count())
         if not isinstance(metric, str):
             assert len(metric) == 1
@@ -233,7 +235,8 @@ class DOTADataset(CustomDataset):
                 with_merge=with_merge,
                 ign_scale_ranges=ign_scale_ranges,
                 iou_thr=merge_iou_thr,
-                save_dir=save_dir)
+                save_dir=save_dir,
+                non_cuda_parallel=non_cuda_parallel)
 
             infos = self.ori_infos if with_merge else self.data_infos
             id_mapper = {ann['id']: i for i, ann in enumerate(infos)}

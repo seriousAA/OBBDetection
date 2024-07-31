@@ -130,7 +130,9 @@ class RotatedHungarianAssigner(BaseAssigner):
         if bbox_type == 'obb':
             temp_delta = gt_bboxes.new_tensor([0., 0., 0., 0., 0.5]).unsqueeze(0)
             normalize_gt_bboxes += temp_delta
-        reg_cost = self.reg_cost(bbox_pred, normalize_gt_bboxes)
+            reg_cost = self.reg_cost(bbox_pred, normalize_gt_bboxes, box_format='obb')
+        else:
+            reg_cost = self.reg_cost(bbox_pred, normalize_gt_bboxes, box_format='xywh')
         # regression iou cost, defaultly giou is used in official DETR.
         if bbox_type == 'obb':
             bboxes = (bbox_pred - temp_delta) * factor

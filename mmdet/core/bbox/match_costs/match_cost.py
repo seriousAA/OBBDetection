@@ -31,7 +31,7 @@ class BBoxL1Cost:
         assert box_format in ['xyxy', 'xywh', 'obb']
         self.box_format = box_format
 
-    def __call__(self, bbox_pred, gt_bboxes):
+    def __call__(self, bbox_pred, gt_bboxes, box_format=None):
         """
         Args:
             bbox_pred (Tensor): Predicted boxes with normalized coordinates
@@ -43,6 +43,8 @@ class BBoxL1Cost:
         Returns:
             torch.Tensor: bbox_cost value with weight
         """
+        if box_format is not None:
+            self.box_format = box_format
         if self.box_format == 'xywh':
             gt_bboxes = bbox_xyxy_to_cxcywh(gt_bboxes)
         elif self.box_format == 'xyxy':

@@ -2104,7 +2104,7 @@ class DinoTransformer(nn.Module):
         # memory: [bs, hw, c]
         # enc_intermediate_output: [n_enc, bs, nq, c]
         # enc_intermediate_refpoints: [n_enc, bs, nq, c]
-        memory, enc_intermediate_output, enc_intermediate_refpoints = self.encoder(
+        memory, _, _ = self.encoder(
                 src_flatten, 
                 pos=lvl_pos_embed_flatten, 
                 level_start_index=level_start_index, 
