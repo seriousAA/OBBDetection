@@ -97,10 +97,11 @@ class OBBDinoDETRHead(AnchorFreeHead):
                     use_sigmoid=True,
                     gamma=2.0,
                     alpha=0.25,
-                    loss_weight=2.0),
-                 loss_bbox=dict(type='SmoothL1Loss', beta=1.0, loss_weight=2.0),
-                 loss_iou=dict(type='RotatedIoULoss', loss_weight=0.5),
-                 loss_enc_iou=dict(type='GIoULoss', loss_weight=0.5),
+                    loss_weight=1.0),
+                 loss_bbox=dict(type='L1Loss', beta=1.0, loss_weight=1.0),
+                 loss_iou=dict(type='RotatedIoULoss', loss_weight=1.0),
+                 loss_enc_iou=dict(type='GIoULoss', loss_weight=1.0),
+                 # training and testing settings
                  train_cfg=dict(
                      assigner=dict(
                         type='HungarianAssigner',
@@ -1150,69 +1151,7 @@ class OBBDinoDETRHead(AnchorFreeHead):
         return results_list
 
     def forward_onnx(self, feats, img_metas):
-        """Forward function for exporting to ONNX.
-
-        Over-write `forward` because: `masks` is directly created with
-        zero (valid position tag) and has the same spatial size as `x`.
-        Thus the construction of `masks` is different from that in `forward`.
-
-        Args:
-            feats (tuple[Tensor]): Features from the upstream network, each is
-                a 4D-tensor.
-            img_metas (list[dict]): List of image information.
-
-        Returns:
-            tuple[list[Tensor], list[Tensor]]: Outputs for all scale levels.
-
-                - all_cls_scores_list (list[Tensor]): Classification scores \
-                    for each scale level. Each is a 4D-tensor with shape \
-                    [nb_dec, bs, num_query, cls_out_channels]. Note \
-                    `cls_out_channels` should includes background.
-                - all_bbox_preds_list (list[Tensor]): Sigmoid regression \
-                    outputs for each scale level. Each is a 4D-tensor with \
-                    normalized coordinate format (cx, cy, w, h) and shape \
-                    [nb_dec, bs, num_query, 4].
-        """
-        num_levels = len(feats)
-        img_metas_list = [img_metas for _ in range(num_levels)]
-        return multi_apply(self.forward_single_onnx, feats, img_metas_list)
+        pass
 
     def forward_single_onnx(self, x, img_metas):
-        """"Forward function for a single feature level with ONNX exportation.
-
-        Args:
-            x (Tensor): Input feature from backbone's single stage, shape
-                [bs, c, h, w].
-            img_metas (list[dict]): List of image information.
-
-        Returns:
-            all_cls_scores (Tensor): Outputs from the classification head,
-                shape [nb_dec, bs, num_query, cls_out_channels]. Note
-                cls_out_channels should includes background.
-            all_bbox_preds (Tensor): Sigmoid outputs from the regression
-                head with normalized coordinate format (cx, cy, w, h).
-                Shape [nb_dec, bs, num_query, 4].
-        """
-        # Note `img_shape` is not dynamically traceable to ONNX,
-        # since the related augmentation was done with numpy under
-        # CPU. Thus `masks` is directly created with zeros (valid tag)
-        # and the same spatial shape as `x`.
-        # The difference between torch and exported ONNX model may be
-        # ignored, since the same performance is achieved (e.g.
-        # 40.1 vs 40.1 for DETR)
-        batch_size = x.size(0)
-        h, w = x.size()[-2:]
-        masks = x.new_zeros((batch_size, h, w))  # [B,h,w]
-
-        x = self.input_proj(x)
-        # interpolate masks to have the same spatial shape with x
-        masks = F.interpolate(
-            masks.unsqueeze(1), size=x.shape[-2:]).to(torch.bool).squeeze(1)
-        pos_embed = self.positional_encoding(masks)
-        outs_dec, _ = self.transformer(x, masks, self.query_embedding.weight,
-                                       pos_embed)
-
-        all_cls_scores = self.fc_cls(outs_dec)
-        all_bbox_preds = self.fc_reg(self.activate(
-            self.reg_ffn(outs_dec))).sigmoid()
-        return all_cls_scores, all_bbox_preds
+        pass

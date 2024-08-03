@@ -187,7 +187,7 @@ class DOTADataset(CustomDataset):
             
             tough_tasks = [task for task, flag in zip(tasks, count_results) if flag]
             print("Accelerate the tough tasks by cuda using GPU.")
-            if calculate_nproc_gpu_source() < 2 or non_cuda_parallel:
+            if non_cuda_parallel or calculate_nproc_gpu_source() < 2:
                 tough_results = mmcv.track_progress(
                     merge_func, (collector.items(), len(collector)))
             else:
