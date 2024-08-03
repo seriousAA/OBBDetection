@@ -1,5 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch
+import torch.nn as nn
+from torch import Tensor
+import torch.nn.functional as F
+from typing import Dict, Optional, Tuple, Union
 from ..iou_calculators import bbox_overlaps
 from ..transforms import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 from ..transforms_obb import bbox2type
@@ -149,6 +153,202 @@ class ClassificationCost:
         cls_score = cls_pred.softmax(-1)
         cls_cost = -cls_score[:, gt_labels]
         return cls_cost * self.weight
+
+def seesaw_func(cls_score: Tensor,
+                   labels: Tensor,
+                   cum_samples: Tensor,
+                   num_classes: int,
+                   p: float,
+                   q: float,
+                   eps: float) -> Tensor:
+    assert cls_score.size(-1) == num_classes
+    assert len(cum_samples) == num_classes
+
+    onehot_labels = F.one_hot(labels, num_classes)
+    seesaw_weights = cls_score.new_ones(onehot_labels.size())
+
+    # mitigation factor
+    if p > 0:
+        sample_ratio_matrix = cum_samples[None, :].clamp(
+            min=1) / cum_samples[:, None].clamp(min=1)
+        index = (sample_ratio_matrix < 1.0).float()
+        sample_weights = sample_ratio_matrix.pow(p) * index + (1 - index)
+        mitigation_factor = sample_weights[labels.long(), :]
+        seesaw_weights = seesaw_weights * mitigation_factor
+
+    # compensation factor
+    if q > 0:
+        scores = F.softmax(cls_score.detach(), dim=1)
+        self_scores = scores[
+            torch.arange(0, len(scores)).to(scores.device).long(),
+            labels.long()]
+        score_matrix = scores / self_scores[:, None].clamp(min=eps)
+        index = (score_matrix > 1.0).float()
+        compensation_factor = score_matrix.pow(q) * index + (1 - index)
+        seesaw_weights = seesaw_weights * compensation_factor
+
+    cls_score = cls_score + (seesaw_weights.log() * (1 - onehot_labels))
+    
+    return cls_score
+
+class BaseSeesawCost(nn.Module):
+    """Base class for shared logic between a series of definitions of SeesawLossCost.
+
+    Args:
+        weight (int | float, optional): loss_weight
+        p (float, optional): The parameter p for the seesaw loss.
+        q (float, optional): The parameter q for the seesaw loss.
+        num_classes (int, optional): The number of classes.
+        eps (float, optional): The parameter eps for the seesaw loss.
+        with_bg_score (bool, optional): Whether the background class is included in the score.
+    """
+
+    def __init__(self,
+                 weight: float = 1.0,
+                 p: float = 0.8,
+                 q: float = 2.0,
+                 num_classes: int = 18,
+                 eps: float = 1e-2,
+                 with_bg_score: bool = False) -> None:
+        super().__init__()
+        self.weight = weight
+        self.p = p
+        self.q = q
+        self.num_classes = num_classes
+        self.eps = eps
+        self.with_bg_score = with_bg_score
+
+        # cumulative samples for each category
+        if not with_bg_score:
+            self.register_buffer(
+                'cum_samples',
+                torch.zeros(self.num_classes, dtype=torch.float, device='cuda'))
+        else:
+            self.register_buffer(
+                'cum_samples',
+                torch.zeros(self.num_classes + 1, dtype=torch.float, device='cuda'))
+
+    def _split_cls_score(self, cls_score: Tensor) -> Tuple[Tensor, Tensor]:
+        """Split cls_score.
+
+        Args:
+            cls_score (Tensor): The prediction with shape (N, C + 1).
+
+        Returns:
+            Tuple[Tensor, Tensor]: The score for classes and objectness,
+                respectively.
+        """
+        assert cls_score.size(-1) == self.num_classes + 1
+        cls_score_classes = cls_score[..., :-1]
+        cls_score_objectness = torch.stack((cls_score[..., :-1].max(dim=-1).values,
+                                            cls_score[..., -1]), dim=-1)
+        return cls_score_classes, cls_score_objectness
+
+    def forward(self, 
+                 cls_score: Tensor,
+                 gt_labels: Tensor,
+                 cost_function) -> Union[Tensor, Dict[str, Tensor]]:
+        """
+        Args:
+            cls_pred (Tensor): Predicted classification logits, shape
+                [num_query, num_class or num_classes + 1].
+            gt_labels (Tensor): Label of `gt_bboxes`, shape (num_gt,).
+            cost_function: Cost function to compute the classification loss.
+
+        Returns:
+            torch.Tensor: cls_cost value with weight.
+        """
+        if not self.with_bg_score:
+            assert cls_score.size(-1) == self.num_classes
+        else:
+            assert cls_score.size(-1) == self.num_classes + 1
+        if self.cum_samples.device != gt_labels.device:
+            self.cum_samples = self.cum_samples.to(gt_labels.device)
+        pos_inds = gt_labels < self.num_classes
+        # Accumulate the samples for each category
+        unique_labels = gt_labels.unique()
+        for u_l in unique_labels:
+            inds_ = gt_labels == u_l.item()
+            self.cum_samples[u_l] += inds_.sum()
+
+        if not self.with_bg_score:
+            assert pos_inds.sum() == len(gt_labels)
+            cls_score = seesaw_func(cls_score, gt_labels, self.cum_samples, self.num_classes, 
+                                    self.p, self.q, self.eps)
+            cls_classes_cost = cost_function(cls_score, gt_labels)
+            return cls_classes_cost
+            
+        # 0 for pos, 1 for neg
+        obj_labels = (gt_labels == self.num_classes).long()
+
+        cls_score_classes, cls_score_objectness = self._split_cls_score(cls_score)
+        if pos_inds.sum() > 0:
+            cls_score_classes_ = seesaw_func(cls_score_classes[pos_inds], gt_labels[pos_inds],
+                                            self.cum_samples[:self.num_classes], self.num_classes, self.p, 
+                                            self.q, self.eps)
+            cls_classes_cost = cost_function(cls_score_classes_, gt_labels[pos_inds])
+        else:
+            cls_classes_cost = self.weight * cls_score_classes[pos_inds].sum()
+        cls_objectness_cost = -self.weight * cls_score_objectness.softmax(-1)[:, obj_labels]
+        cls_cost = cls_classes_cost + cls_objectness_cost
+        
+        return cls_cost
+
+
+@MATCH_COST.register_module()
+class SeesawLossCost(BaseSeesawCost):
+    """The naive SeesawLossCost.
+    
+    """
+
+    def __init__(self,
+                 weight: float = 1.0,
+                 p: float = 0.8,
+                 q: float = 2.0,
+                 num_classes: int = 18,
+                 eps: float = 1e-2,
+                 with_bg_score: bool = False) -> None:
+        super().__init__(weight, p, q, num_classes, eps, with_bg_score)
+
+    def forward(self, cls_score: Tensor, gt_labels: Tensor) -> Tensor:
+        cost_function = ClassificationCost(self.weight)
+        return super().forward(cls_score, gt_labels, cost_function)
+
+
+@MATCH_COST.register_module()
+class SeesawFocalLossCost(BaseSeesawCost):
+    """SeesawFocalLossCost.
+
+    Args:
+        weight (int | float, optional): loss_weight
+        p (float, optional): The parameter p for the seesaw loss.
+        q (float, optional): The parameter q for the seesaw loss.
+        num_classes (int, optional): The number of classes.
+        eps (float, optional): The parameter eps for the seesaw loss.
+        gamma (float, optional): The gamma for calculating the modulating
+            factor for focal loss. Defaults to 2.0.
+        alpha (float, optional): A balanced form for Focal Loss.
+            Defaults to 0.25.
+        with_bg_score (bool, optional): Whether the background class is included in the score.
+
+    """
+
+    def __init__(self,
+                 weight: float = 1.0,
+                 p: float = 0.8,
+                 q: float = 2.0,
+                 num_classes: int = 18,
+                 eps: float = 1e-2,
+                 gamma: float = 2.0,
+                 alpha: float = 0.25,
+                 with_bg_score: bool = True) -> None:
+        super().__init__(weight, p, q, num_classes, eps, with_bg_score)
+        self.gamma = gamma
+        self.alpha = alpha
+
+    def forward(self, cls_score: Tensor, gt_labels: Tensor) -> Tensor:
+        cost_function = FocalLossCost(self.weight, self.alpha, self.gamma, self.eps)
+        return super().forward(cls_score, gt_labels, cost_function)
 
 
 @MATCH_COST.register_module()
