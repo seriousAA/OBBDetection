@@ -94,7 +94,7 @@ class DOTADataset(CustomDataset):
                        iou_thr=0.5,
                        nproc=10,
                        save_dir=None,
-                       non_cuda_parallel=False,
+                       non_cuda_parallel_merge=False,
                        **kwargs):
         nproc = min(nproc, os.cpu_count())
         task = self.task
@@ -155,7 +155,8 @@ class DOTADataset(CustomDataset):
             CLASSES=self.CLASSES,
             iou_thr=iou_thr,
             task=task,
-            threshold=threshold
+            threshold=threshold,
+            non_cuda_parallel_merge=non_cuda_parallel_merge
         )
         if nproc <= 1:
             print('Single processing')
@@ -187,7 +188,7 @@ class DOTADataset(CustomDataset):
             
             tough_tasks = [task for task, flag in zip(tasks, count_results) if flag]
             print("Accelerate the tough tasks by cuda using GPU.")
-            if non_cuda_parallel or calculate_nproc_gpu_source() < 2:
+            if non_cuda_parallel_merge or calculate_nproc_gpu_source() < 2:
                 tough_results = mmcv.track_progress(
                     merge_func, (tough_tasks, len(tough_tasks)))
             else:
@@ -217,7 +218,7 @@ class DOTADataset(CustomDataset):
                  eval_iou_thr=[0.5],
                  proposal_nums=(2000,),
                  nproc=10,
-                 non_cuda_parallel=False):
+                 non_cuda_parallel_merge=False):
         nproc = min(nproc, os.cpu_count())
         if not isinstance(metric, str):
             assert len(metric) == 1
@@ -236,7 +237,7 @@ class DOTADataset(CustomDataset):
                 ign_scale_ranges=ign_scale_ranges,
                 iou_thr=merge_iou_thr,
                 save_dir=save_dir,
-                non_cuda_parallel=non_cuda_parallel)
+                non_cuda_parallel_merge=non_cuda_parallel_merge)
 
             infos = self.ori_infos if with_merge else self.data_infos
             id_mapper = {ann['id']: i for i, ann in enumerate(infos)}
@@ -322,7 +323,7 @@ def _count_func(info, CLASSES, threshold=5e2):
             return True
     return False
 
-def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2, max_capacity=5e4):
+def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2, max_capacity=5e4, non_cuda_parallel_merge=False):
     img_id, label_dets = info
     label_dets = np.concatenate(label_dets, axis=0)
     labels, dets = label_dets[:, 0], label_dets[:, 1:]
@@ -335,8 +336,11 @@ def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2, max_capacity=5e4):
         cls_dets = cls_dets[indices, :]
         
         if cls_dets.shape[0] > threshold:
-            device_id = find_gpu_memory_allocation(os.getpid())
-            device_id = device_id if device_id else find_best_gpu()
+            if non_cuda_parallel_merge:
+                device_id = 0
+            else:
+                device_id = find_gpu_memory_allocation(os.getpid())
+                device_id = device_id if device_id else find_best_gpu()
             if device_id is None:
                 print("\nWarning: Too many bboxes in a single image:"
                     f"\nImage ID: {img_id}, Number of subpatches: {len(info[1])}, "
