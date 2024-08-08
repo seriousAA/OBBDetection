@@ -323,7 +323,7 @@ def _count_func(info, CLASSES, threshold=5e2):
             return True
     return False
 
-def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2, max_capacity=5e4, non_cuda_parallel_merge=False):
+def _merge_func(info, CLASSES, iou_thr, task, threshold=5e2, max_capacity=5e3, non_cuda_parallel_merge=False):
     img_id, label_dets = info
     label_dets = np.concatenate(label_dets, axis=0)
     labels, dets = label_dets[:, 0], label_dets[:, 1:]
