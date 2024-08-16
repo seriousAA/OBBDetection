@@ -2,7 +2,7 @@ from .accuracy import Accuracy, accuracy
 from .ae_loss import AssociativeEmbeddingLoss
 from .cross_entropy_loss import (CrossEntropyLoss, binary_cross_entropy, cross_entropy, mask_cross_entropy)
 from .mse_loss import MSELoss, mse_loss
-from .smooth_l1_loss import L1Loss, SmoothL1Loss, l1_loss, smooth_l1_loss
+from .smooth_l1_loss import L1Loss, SmoothL1Loss, l1_loss, smooth_l1_loss, NLLoss
 from .utils import reduce_loss, weight_reduce_loss, weighted_loss
 
 from .general.balanced_l1_loss import BalancedL1Loss, balanced_l1_loss
@@ -34,7 +34,7 @@ __all__ = [
     'IoULoss', 'BoundedIoULoss', 'GIoULoss', 'GHMC', 'GHMR', 'reduce_loss',
     'weight_reduce_loss', 'weighted_loss', 'L1Loss', 'l1_loss', 'isr_p',
     'carl_loss', 'AssociativeEmbeddingLoss', 'GaussianFocalLoss',
-    'QualityFocalLoss', 'DistributionFocalLoss', 
+    'QualityFocalLoss', 'DistributionFocalLoss', "NLLoss",
     'GDLoss', 'GDLoss_v1', 'KFLoss', 'SmoothFocalLoss', 'RotatedIoULoss', 'PolyIoULoss',
     'PolyGIoULoss', 'SoftmaxFocalLoss', 'TaskAlignedFocalLoss', 'BinaryKLDivLoss',
     'FocalKLLoss', 'SeesawLoss', 'SeesawFocalLoss'
