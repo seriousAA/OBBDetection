@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import math
 
 from ..builder import LOSSES
 from .utils import weighted_loss
@@ -135,67 +134,3 @@ class L1Loss(nn.Module):
         loss_bbox = self.loss_weight * l1_loss(
             pred, target, weight, reduction=reduction, avg_factor=avg_factor)
         return loss_bbox
-
-
-@LOSSES.register_module()
-class NLLoss(nn.Module):
-    def __init__(self, beta: float, reduction: str = 'none'):
-        """
-        Args:
-            beta (float): L1 to L2 change point.
-                          For beta values < 1e-5, L1 loss is computed.
-            reduction (str): Specifies the reduction to apply to the output.
-                             'none' | 'mean' | 'sum'
-                             'none': No reduction will be applied to the output.
-                             'mean': The output will be averaged.
-                             'sum': The output will be summed.
-        """
-        super(NLLoss, self).__init__()
-        assert reduction in ['none', 'mean', 'sum'], "Reduction must be one of 'none', 'mean', or 'sum'."
-        self.beta = beta
-        self.reduction = reduction
-
-    def forward(
-        self, 
-        input: torch.Tensor, 
-        input_std: torch.Tensor, 
-        target: torch.Tensor, 
-        iou_weight: torch.Tensor
-    ) -> torch.Tensor:
-        """
-        Args:
-            input (torch.Tensor): Input tensor of any shape.
-            input_std (torch.Tensor): Standard deviation tensor with the same shape as input.
-            target (torch.Tensor): Target tensor with the same shape as input.
-            iou_weight (torch.Tensor): IoU weight tensor to weigh the loss per instance.
-        
-        Returns:
-            torch.Tensor: The calculated loss.
-        """
-        mean = input
-        sigma = input_std.sigmoid()
-        sigma_sq = torch.square(sigma)
-
-        # First term of the loss: (target - mean)^2 / (2 * sigma^2)
-        first_term = torch.square(target - mean) / (2 * sigma_sq)
-
-        # Second term of the loss: 0.5 * log(sigma^2)
-        second_term = 0.5 * torch.log(sigma_sq)
-
-        # Combine terms and add normalization constant for Gaussian distribution
-        sum_before_iou = (first_term + second_term).sum(dim=1) + 2 * torch.log(
-            2 * torch.tensor([math.pi]).cuda()
-        )
-
-        # Multiply by IoU weight
-        loss_m = sum_before_iou * iou_weight
-
-        # Apply reduction method
-        if self.reduction == "mean":
-            loss = loss_m.mean()
-        elif self.reduction == "sum":
-            loss = loss_m.sum()
-        else:
-            loss = loss_m  # No reduction
-
-        return loss
