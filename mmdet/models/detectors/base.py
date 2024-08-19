@@ -105,6 +105,7 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
             pretrained (str, optional): Path to pre-trained weights.
                 Defaults to None.
         """
+        super(BaseDetector, self).init_weights()
         if pretrained is not None:
             logger = get_root_logger()
             print_log(f'load model from: {pretrained}', logger=logger)

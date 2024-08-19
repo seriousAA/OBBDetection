@@ -4,6 +4,7 @@ import warnings
 import torch
 
 from mmdet.models.builder import DETECTORS
+from mmdet.utils import get_root_logger
 from .obb_single_stage import OBBSingleStageDetector
 
 
@@ -21,10 +22,25 @@ class OBBDinoDETR(OBBSingleStageDetector):
                  test_cfg=None,
                  pretrained=None,
                  init_cfg=None):
+        if init_cfg:
+            self.reset_cls_fcs = init_cfg.pop('reset_cls_fcs', False)
         super(OBBDinoDETR, self).__init__(backbone, None, bbox_head, train_cfg,
                                    test_cfg, pretrained, init_cfg)
-    
+        if pretrained is not None:
+            warnings.warn('DeprecationWarning: pretrained is a deprecated \
+                key, please consider using init_cfg')
+            self.init_cfg = dict(type='Pretrained', checkpoint=pretrained)
 
+    def init_weights(self, pretrained=None):
+        super(OBBDinoDETR, self).init_weights(pretrained)
+        if hasattr(self, 'init_cfg') and self.reset_cls_fcs:
+            logger = get_root_logger()
+            logger.info('Reset the classifier weights of %s', self.bbox_head.__class__.__name__)
+            if hasattr(self.bbox_head, 'reset_fc_cls_weights'):
+                self.bbox_head.reset_fc_cls_weights()
+            else:
+                self.bbox_head.init_weights()
+    
     # over-write `forward_dummy` because:
     # the forward of bbox_head requires img_metas
     def forward_dummy(self, img):

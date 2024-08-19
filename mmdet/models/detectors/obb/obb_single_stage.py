@@ -21,7 +21,7 @@ class OBBSingleStageDetector(OBBBaseDetector):
                  test_cfg=None,
                  pretrained=None,
                  init_cfg=None):
-        super(OBBSingleStageDetector, self).__init__(init_cfg)
+        super(OBBSingleStageDetector, self).__init__(init_cfg=init_cfg)
         self.backbone = build_backbone(backbone)
         if neck is not None:
             self.neck = build_neck(neck)
@@ -40,6 +40,8 @@ class OBBSingleStageDetector(OBBBaseDetector):
                 Defaults to None.
         """
         super(OBBSingleStageDetector, self).init_weights(pretrained)
+        if hasattr(self, 'init_cfg') and self.init_cfg['type'] == 'Pretrained':
+            return
         self.backbone.init_weights(pretrained=pretrained)
         if self.with_neck:
             if isinstance(self.neck, nn.Sequential):
