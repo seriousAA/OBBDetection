@@ -137,7 +137,7 @@ class OBBStandardRoIHead(OBBBaseRoIHead, OBBoxTestMixin, OBBMaskTestMixin):
         if self.with_bbox:
             bbox_results = self._bbox_forward_train(x, sampling_results,
                                                     gt_bboxes, gt_labels,
-                                                    img_metas)
+                                                    img_metas=img_metas)
             losses.update(bbox_results['loss_bbox'])
 
         # mask head forward and loss
