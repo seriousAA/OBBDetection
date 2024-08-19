@@ -10,8 +10,7 @@ def multiclass_arb_nms(multi_bboxes,
                        nms_cfg,
                        max_num=-1,
                        score_factors=None,
-                       bbox_type='hbb',
-                       return_inds=False):
+                       bbox_type='hbb'):
     bbox_dim = get_bbox_dim(bbox_type)
     num_classes = multi_scores.size(1) - 1
     # exclude background category
@@ -31,10 +30,7 @@ def multiclass_arb_nms(multi_bboxes,
 
     if bboxes.numel() == 0:
         bboxes = multi_bboxes.new_zeros((0, bbox_dim+1))
-        labels = multi_bboxes.new_zeros((0, ), dtype=torch.int64)
-        keep = multi_bboxes.new_zeros((0, ), dtype=torch.int64)
-        if return_inds:
-            return bboxes, labels, keep
+        labels = multi_bboxes.new_zeros((0, ), dtype=torch.long)
         return bboxes, labels
 
     dets, keep = arb_batched_nms(bboxes, scores, labels, nms_cfg)
@@ -43,6 +39,4 @@ def multiclass_arb_nms(multi_bboxes,
         dets = dets[:max_num]
         keep = keep[:max_num]
 
-    if return_inds:
-        return dets, labels[keep], keep
     return dets, labels[keep]
