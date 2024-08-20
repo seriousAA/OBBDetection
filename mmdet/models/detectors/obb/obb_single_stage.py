@@ -40,7 +40,7 @@ class OBBSingleStageDetector(OBBBaseDetector):
                 Defaults to None.
         """
         super(OBBSingleStageDetector, self).init_weights(pretrained)
-        if hasattr(self, 'init_cfg') and self.init_cfg['type'] == 'Pretrained':
+        if getattr(self, 'init_cfg', None) and self.init_cfg.get('type', None) == 'Pretrained':
             return
         self.backbone.init_weights(pretrained=pretrained)
         if self.with_neck:

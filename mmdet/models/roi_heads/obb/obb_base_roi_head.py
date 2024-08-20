@@ -46,7 +46,7 @@ class OBBBaseRoIHead(nn.Module, metaclass=ABCMeta):
         return hasattr(self, 'shared_head') and self.shared_head is not None
 
     @abstractmethod
-    def init_weights(self, pretrained):
+    def init_weights(self, pretrained=None):
         """Initialize the weights in head
 
         Args:

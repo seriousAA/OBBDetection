@@ -225,7 +225,7 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
 
     def init_mask_head(self, mask_roi_extractor, mask_head):
 
-    def init_weights(self, pretrained):
+    def init_weights(self, pretrained=None):
 
     def forward_dummy(self, x, proposals):
 

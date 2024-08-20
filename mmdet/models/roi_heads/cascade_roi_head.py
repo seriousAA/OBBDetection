@@ -99,7 +99,7 @@ class CascadeRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
                     build_assigner(rcnn_train_cfg.assigner))
                 self.bbox_sampler.append(build_sampler(rcnn_train_cfg.sampler))
 
-    def init_weights(self, pretrained):
+    def init_weights(self, pretrained=None):
         """Initialize the weights in head
 
         Args:
