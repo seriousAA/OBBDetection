@@ -563,11 +563,11 @@ class OBBFCOSHead(OBBAnchorFreeHead):
         return labels, bbox_targets
 
     def centerness_target(self, pos_bbox_targets):
-        """Compute centerness targets.
+        """Compute centerness targets for oriented bounding boxes (OBB).
 
         Args:
             pos_bbox_targets (Tensor): BBox targets of positive bboxes in shape
-                (num_pos, 4)
+                (num_pos, 5), where the 5 columns are [d_xl, d_yt, d_xr, d_xb, d_theta].
 
         Returns:
             Tensor: Centerness target.
