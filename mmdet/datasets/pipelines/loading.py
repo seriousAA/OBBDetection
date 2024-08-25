@@ -1,10 +1,11 @@
 import os.path as osp
-
+import cv2
 import mmcv
 import numpy as np
 import pycocotools.mask as maskUtils
 
 from mmdet.core import BitmapMasks, PolygonMasks
+from mmdet.utils import get_root_logger
 from ..builder import PIPELINES
 
 
@@ -61,6 +62,10 @@ class LoadImageFromFile(object):
         if self.to_float32:
             img = img.astype(np.float32)
 
+        if img is None:
+            logger = get_root_logger()
+            logger.error(f'Fail to read {filename}. The image content may be corrupted')
+            raise ValueError(f'Fail to read {filename}. The image content may be corrupted')
         results['filename'] = filename
         results['ori_filename'] = results['img_info']['filename']
         results['img'] = img
