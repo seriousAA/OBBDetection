@@ -17,7 +17,7 @@ class MaskScoringRoIHead(StandardRoIHead):
         super(MaskScoringRoIHead, self).__init__(**kwargs)
         self.mask_iou_head = build_head(mask_iou_head)
 
-    def init_weights(self, pretrained):
+    def init_weights(self, pretrained=None):
         """Initialize the weights in head
 
         Args:

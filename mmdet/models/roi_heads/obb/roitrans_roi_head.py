@@ -68,7 +68,7 @@ class RoITransRoIHead(OBBBaseRoIHead):
                 self.bbox_sampler.append(build_sampler(rcnn_train_cfg.sampler, context=self))
         # sampler need context, init in train procession
 
-    def init_weights(self, pretrained):
+    def init_weights(self, pretrained=None):
         for i in range(self.num_stages):
             if self.with_bbox:
                 self.bbox_roi_extractor[i].init_weights()

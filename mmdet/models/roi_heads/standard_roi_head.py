@@ -35,7 +35,7 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
             self.mask_roi_extractor = self.bbox_roi_extractor
         self.mask_head = build_head(mask_head)
 
-    def init_weights(self, pretrained):
+    def init_weights(self, pretrained=None):
         """Initialize the weights in head
 
         Args:

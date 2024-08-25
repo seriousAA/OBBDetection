@@ -23,7 +23,7 @@ class GridRoIHead(StandardRoIHead):
             self.grid_roi_extractor = self.bbox_roi_extractor
         self.grid_head = build_head(grid_head)
 
-    def init_weights(self, pretrained):
+    def init_weights(self, pretrained=None):
         """Initialize the weights in head
 
         Args:

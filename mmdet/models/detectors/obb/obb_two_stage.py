@@ -22,8 +22,9 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
                  roi_head=None,
                  train_cfg=None,
                  test_cfg=None,
-                 pretrained=None):
-        super(OBBTwoStageDetector, self).__init__()
+                 pretrained=None,
+                 init_cfg=None):
+        super(OBBTwoStageDetector, self).__init__(init_cfg=init_cfg)
         self.backbone = build_backbone(backbone)
 
         if neck is not None:
@@ -66,6 +67,8 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
                 Defaults to None.
         """
         super(OBBTwoStageDetector, self).init_weights(pretrained)
+        if getattr(self, 'init_cfg', None) and self.init_cfg.get('type', None) == 'Pretrained':
+            return
         self.backbone.init_weights(pretrained=pretrained)
         if self.with_neck:
             if isinstance(self.neck, nn.Sequential):
