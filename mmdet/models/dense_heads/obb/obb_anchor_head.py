@@ -8,10 +8,11 @@ from mmdet.core import (anchor_inside_flags, build_anchor_generator,
                         get_bbox_type, get_bbox_dim, bbox2type, multiclass_arb_nms)
 from mmdet.models.builder import HEADS, build_loss
 from ..base_dense_head import BaseDenseHead
+from ..dense_test_mixins import BBoxTestMixin
 
 
 @HEADS.register_module()
-class OBBAnchorHead(BaseDenseHead):
+class OBBAnchorHead(BaseDenseHead, BBoxTestMixin):
     """Anchor-based head (RPN, RetinaNet, SSD, etc.).
 
     Args:

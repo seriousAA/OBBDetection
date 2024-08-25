@@ -7,10 +7,11 @@ from mmcv.cnn import ConvModule, bias_init_with_prob, normal_init
 from mmdet.core import force_fp32, multi_apply, get_bbox_dim
 from mmdet.models.builder import HEADS, build_loss
 from ..base_dense_head import BaseDenseHead
+from ..dense_test_mixins import BBoxTestMixin
 
 
 @HEADS.register_module()
-class OBBAnchorFreeHead(BaseDenseHead):
+class OBBAnchorFreeHead(BaseDenseHead, BBoxTestMixin):
     """Anchor-free head (FCOS, Fovea, RepPoints, etc.).
 
     Args:

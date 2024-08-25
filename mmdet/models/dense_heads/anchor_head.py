@@ -8,10 +8,11 @@ from mmdet.core import (anchor_inside_flags, build_anchor_generator,
                         multiclass_nms, unmap)
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
+from .dense_test_mixins import BBoxTestMixin
 
 
 @HEADS.register_module()
-class AnchorHead(BaseDenseHead):
+class AnchorHead(BaseDenseHead, BBoxTestMixin):
     """Anchor-based head (RPN, RetinaNet, SSD, etc.).
 
     Args:

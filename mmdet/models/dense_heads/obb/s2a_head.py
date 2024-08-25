@@ -8,6 +8,7 @@ from mmcv.ops import DeformConv2dPack, DeformConv2d
 from mmdet.core import get_bbox_dim
 from mmdet.models.builder import HEADS, build_head
 from ..base_dense_head import BaseDenseHead
+from ..dense_test_mixins import BBoxTestMixin
 
 
 class AlignConv(nn.Module):
@@ -86,7 +87,7 @@ class AlignConv(nn.Module):
 
 
 @HEADS.register_module()
-class S2AHead(BaseDenseHead):
+class S2AHead(BaseDenseHead, BBoxTestMixin):
 
     def __init__(self,
                  heads,
