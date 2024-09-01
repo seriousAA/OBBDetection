@@ -316,7 +316,7 @@ class OBBAnchorFreeHead(BaseDenseHead, BBoxTestMixin):
             x = x.flatten()
         return y, x
 
-    def get_points(self, featmap_sizes, dtype, device, flatten=False):
+    def get_points(self, featmap_sizes, dtype, device, **kwargs):
         """Get points according to feature map sizes.
 
         Args:
@@ -331,5 +331,5 @@ class OBBAnchorFreeHead(BaseDenseHead, BBoxTestMixin):
         for i in range(len(featmap_sizes)):
             mlvl_points.append(
                 self._get_points_single(featmap_sizes[i], self.strides[i],
-                                        dtype, device, flatten))
+                                        dtype, device, **kwargs))
         return mlvl_points

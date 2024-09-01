@@ -419,11 +419,12 @@ class OBBFCOSHead(OBBAnchorFreeHead):
                            stride,
                            dtype,
                            device,
-                           flatten=False):
+                           no_flatten=False):
         """Get points according to feature map sizes."""
         y, x = super()._get_points_single(featmap_size, stride, dtype, device)
-        points = torch.stack((x.reshape(-1) * stride, y.reshape(-1) * stride),
-                             dim=-1) + stride // 2
+        if not no_flatten:
+            y, x = y.reshape(-1), x.reshape(-1)
+        points = torch.stack((x * stride, y * stride), dim=-1) + stride // 2
         return points
 
     def get_targets(self, points, gt_bboxes_list, gt_labels_list):
