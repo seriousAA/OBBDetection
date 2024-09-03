@@ -100,7 +100,7 @@ def arb2roi(bbox_list, bbox_type='hbb'):
     return rois
 
 
-def distance2obb(points, distance, max_shape=None):
+def distance2obb(points, distance, **kwargs):
     distance, theta = distance.split([4, 1], dim=1)
 
     Cos, Sin = torch.cos(theta), torch.sin(theta)
@@ -115,6 +115,36 @@ def distance2obb(points, distance, max_shape=None):
     obbs = torch.cat([ctr, wh, theta], dim=1)
     return regular_obb(obbs)
 
+def obb2distance(points, obboxes, **kwargs):
+    assert points.shape[0] == obboxes.shape[0], "Number of points must match number of bounding boxes"
+    
+    num_points = points.shape[0]
+
+    # Process obboxes
+    obboxes = mintheta_obb(obboxes)
+    
+    # Split obboxes into center, width-height, and angle components
+    gt_ctr, gt_wh, gt_thetas = torch.split(obboxes, [2, 2, 1], dim=1)
+
+    # Calculate rotation matrix
+    Cos, Sin = torch.cos(gt_thetas), torch.sin(gt_thetas)
+    Matrix = torch.cat([Cos, -Sin, Sin, Cos], dim=-1).reshape(num_points, 2, 2)
+    
+    # Calculate offset
+    offset = points - gt_ctr
+    offset = torch.matmul(Matrix, offset[..., None])
+    offset = offset.squeeze(-1)
+
+    # Calculate distances
+    W, H = gt_wh[..., 0], gt_wh[..., 1]
+    offset_x, offset_y = offset[..., 0], offset[..., 1]
+    left = W / 2 + offset_x
+    right = W / 2 - offset_x
+    top = H / 2 + offset_y
+    bottom = H / 2 - offset_y
+    distances = torch.stack((left, top, right, bottom, gt_thetas.squeeze(-1)), -1)
+    
+    return distances
 
 def regular_theta(theta, mode='180', start=-pi/2):
     assert mode in ['360', '180']

@@ -18,7 +18,7 @@ from .transforms_obb import (poly2obb, rectpoly2obb, poly2hbb, obb2poly, obb2hbb
                              poly_mapping_back, arb_mapping, arb_mapping_back,
                              get_bbox_type, get_bbox_dim, get_bbox_areas, choice_by_type,
                              arb2result, arb2roi, distance2obb, regular_theta, regular_obb,
-                             mintheta_obb)
+                             mintheta_obb, obb2distance)
 from .iou_calculators import OBBOverlaps, PolyOverlaps
 from .samplers import (OBBSamplingResult, OBBBaseSampler, OBBRandomSampler,
                        OBBOHEMSampler)
@@ -38,8 +38,9 @@ __all__ = [
     'hbb2obb', 'bbox2type', 'hbb_flip', 'obb_flip', 'poly_flip', 'hbb_warp', 'obb_warp',
     'poly_warp', 'hbb_mapping', 'obb_mapping', 'poly_mapping', 'hbb_mapping_back',
     'obb_mapping_back', 'poly_mapping_back', 'get_bbox_type', 'get_bbox_dim', 'get_bbox_areas',
-    'choice_by_type', 'arb2roi', 'arb2result', 'distance2obb', 'arb_mapping', 'arb_mapping_back',
+    'choice_by_type', 'arb2roi', 'arb2result', 'distance2obb', 'obb2distance',
+    'arb_mapping', 'arb_mapping_back', 'bbox_cxcywh_to_xyxy', 'bbox_rescale', 'bbox_xyxy_to_cxcywh',
     'OBBOverlaps', 'PolyOverlaps', 'OBBSamplingResult', 'OBBBaseSampler', 'OBBRandomSampler',
     'OBBOHEMSampler', 'OBB2OBBDeltaXYWHTCoder', 'HBB2OBBDeltaXYWHTCoder', 'regular_theta',
-    'regular_obb', 'mintheta_obb', 'bbox_cxcywh_to_xyxy', 'bbox_rescale', 'bbox_xyxy_to_cxcywh'
+    'regular_obb', 'mintheta_obb'
 ]
