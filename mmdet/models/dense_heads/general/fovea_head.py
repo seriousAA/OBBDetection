@@ -157,7 +157,7 @@ class FoveaHead(AnchorFreeHead):
         num_pos = len(pos_inds)
 
         loss_cls = self.loss_cls(
-            flatten_cls_scores, flatten_labels, avg_factor=num_pos + num_imgs)
+            flatten_cls_scores, flatten_labels, avg_factor=max(num_pos, 1))
         if num_pos > 0:
             pos_bbox_preds = flatten_bbox_preds[pos_inds]
             pos_bbox_targets = flatten_bbox_targets[pos_inds]
