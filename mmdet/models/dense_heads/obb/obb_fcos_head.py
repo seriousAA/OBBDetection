@@ -160,7 +160,7 @@ class OBBFCOSHead(OBBAnchorFreeHead):
             bbox_pred = bbox_pred.exp()
         theta_pred = self.conv_theta(reg_feat)
         if self.scale_theta:
-            theta_pred = self.scale_t(theta_pred)
+            theta_pred = self.scale_t(theta_pred).float()
         return cls_score, bbox_pred, theta_pred, centerness
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds', 'theta_preds', 'centernesses'))
