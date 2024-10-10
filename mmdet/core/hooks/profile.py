@@ -1,5 +1,9 @@
 from mmcv.runner.hooks import HOOKS, Hook
-from torch.utils.tensorboard import SummaryWriter
+try:
+    from torch.utils.tensorboard import SummaryWriter       # type: ignore
+except ImportError:
+    SummaryWriter = None
+    print("SummaryWriter could not be imported. Ensure that torch and tensorboard are installed.")
 import torch
 import numpy as np
 
