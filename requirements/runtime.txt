@@ -1,6 +1,8 @@
 numpy
+# numpy<1.24
 mmcv-full>=1.5,<1.8
 torch>=1.10
+# torch>=1.10,<2.0
 torchvision
 matplotlib
 Pillow  # need older pillow until torchvision is fixed
@@ -16,4 +18,5 @@ einops
 timm
 ipdb
 yapf<0.40.2
+# TensorBoard>=2.4.1
 setuptools<=59.5
