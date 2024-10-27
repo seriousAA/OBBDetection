@@ -33,7 +33,7 @@ class OBBDinoDETR(OBBSingleStageDetector):
 
     def init_weights(self, pretrained=None):
         super(OBBDinoDETR, self).init_weights(pretrained)
-        if hasattr(self, 'init_cfg') and self.reset_cls_fcs:
+        if hasattr(self, 'init_cfg') and self.init_cfg and self.reset_cls_fcs:
             logger = get_root_logger()
             logger.info('Reset the classifier weights of %s', self.bbox_head.__class__.__name__)
             if hasattr(self.bbox_head, 'reset_fc_cls_weights'):
