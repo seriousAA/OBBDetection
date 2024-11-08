@@ -75,7 +75,8 @@ class OBBSingleStageDetector(OBBBaseDetector):
                       gt_obboxes,
                       gt_labels,
                       gt_bboxes_ignore=None,
-                      gt_obboxes_ignore=None):
+                      gt_obboxes_ignore=None,
+                      **kwargs):
         """
         Args:
             img (Tensor): Input images of shape (N, C, H, W).
@@ -97,7 +98,7 @@ class OBBSingleStageDetector(OBBBaseDetector):
         super(OBBSingleStageDetector, self).forward_train(img, img_metas)
         x = self.extract_feat(img)
         losses = self.bbox_head.forward_train(x, img_metas, gt_obboxes,
-                                              gt_labels, gt_obboxes_ignore)
+                                              gt_labels, gt_obboxes_ignore, **kwargs)
         return losses
 
     def simple_test(self, img, img_metas, **kwargs):
