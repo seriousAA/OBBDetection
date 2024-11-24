@@ -79,12 +79,12 @@ class RotatedHungarianAssigner(BaseAssigner):
 
         Args:
             bbox_pred (Tensor): Predicted boxes with normalized coordinates
-                (cx, cy, w, h), which are all in range [0, 1]. Shape
-                [num_query, 4].
+                (cx, cy, w, h, a), which are all in range [0, 1]. Shape
+                [num_query, 5].
             cls_pred (Tensor): Predicted classification logits, shape
                 [num_query, num_class].
             gt_bboxes (Tensor): Ground truth boxes with unnormalized
-                coordinates (x1, y1, x2, y2). Shape [num_gt, 4].
+                coordinates (cx, cy, w, h, a). Shape [num_gt, 5].
             gt_labels (Tensor): Label of `gt_bboxes`, shape (num_gt,).
             img_meta (dict): Meta information for current image.
             gt_bboxes_ignore (Tensor, optional): Ground truth bboxes that are
