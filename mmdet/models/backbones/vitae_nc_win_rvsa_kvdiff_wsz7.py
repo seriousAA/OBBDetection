@@ -18,7 +18,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 
 from einops import rearrange, repeat
-from timm.models.layers import drop_path, to_2tuple, trunc_normal_
+from timm.layers import drop_path, to_2tuple, trunc_normal_
 
 from mmcv_custom import load_checkpoint
 from mmdet.utils import get_root_logger

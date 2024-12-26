@@ -27,7 +27,7 @@ from mmcv.cnn.bricks.drop import build_dropout
 from mmcv.cnn.bricks.registry import ATTENTION
 from mmcv.utils import  deprecated_api_warning
 ###########################
-from timm.models.layers import DropPath, trunc_normal_
+from timm.layers import DropPath, trunc_normal_
 
 from mmdet.models.utils.builder import TRANSFORMER
 
