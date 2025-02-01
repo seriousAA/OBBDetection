@@ -23,7 +23,7 @@ class FliterEmpty:
 
     def __call__(self, results):
         num_objs = 0
-        for k in ['gt_bboxes', 'gt_masks', 'gt_labels']:
+        for k in ['gt_bboxes', 'gt_obboxes', 'gt_masks', 'gt_labels']:
             if k in results:
                 num_objs += len(results[k])
         if num_objs == 0:

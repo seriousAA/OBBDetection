@@ -92,7 +92,7 @@ class DOTADataset(CustomDataset):
                        with_merge=True,
                        ign_scale_ranges=None,
                        iou_thr=0.5,
-                       nproc=10,
+                       nproc=5,
                        save_dir=None,
                        non_cuda_parallel_merge=False,
                        **kwargs):
@@ -217,7 +217,7 @@ class DOTADataset(CustomDataset):
                  scale_ranges=None,
                  eval_iou_thr=[0.5],
                  proposal_nums=(2000,),
-                 nproc=10,
+                 nproc=5,
                  non_cuda_parallel_merge=False):
         nproc = min(nproc, os.cpu_count())
         if not isinstance(metric, str):
