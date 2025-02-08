@@ -124,6 +124,7 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
                       gt_labels,
                       gt_bboxes_ignore=None,
                       gt_obboxes_ignore=None,
+                      gt_masks = None,
                       proposals=None,
                       **kwargs):
         """
@@ -139,10 +140,16 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
 
             gt_bboxes (list[Tensor]): Ground truth bboxes for each image with
                 shape (num_gts, 4) in [tl_x, tl_y, br_x, br_y] format.
+                
+            gt_obboxes (list[Tensor]): Ground truth rotated bboxes for each image with
+                shape (num_gts, 5) in [cx, cy, w, h, theta] format.
 
             gt_labels (list[Tensor]): class indices corresponding to each box
 
             gt_bboxes_ignore (None | list[Tensor]): specify which bounding
+                boxes can be ignored when computing the loss.
+            
+            gt_obboxes_ignore (None | list[Tensor]): specify which rotated bounding
                 boxes can be ignored when computing the loss.
 
             gt_masks (None | Tensor) : true segmentation masks for each box
