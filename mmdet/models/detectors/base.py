@@ -82,7 +82,10 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
         # NOTE the batched image size information may be useful, e.g.
         # in DETR, this is needed for the construction of masks, which is
         # then used for the transformer_head.
-        batch_input_shape = tuple(imgs[0].size()[-2:])
+        if isinstance(imgs, torch.Tensor):
+            batch_input_shape = tuple(imgs.shape[-2:])
+        else:
+            batch_input_shape = tuple(imgs[0].size()[-2:])
         for img_meta in img_metas:
             img_meta['batch_input_shape'] = batch_input_shape
 
