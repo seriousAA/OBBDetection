@@ -26,10 +26,12 @@ class DOTADataset(CustomDataset):
     def __init__(self,
                  task,
                  fp_ratio=0,
+                 save_ori=False,
                  **kwargs):
         assert task in ['Task1', 'Task2']
         self.task = task
         self.fp_ratio = fp_ratio
+        self.save_ori = save_ori
         super(DOTADataset, self).__init__(**kwargs)
 
     @classmethod
@@ -198,7 +200,12 @@ class DOTADataset(CustomDataset):
             merged_results = easy_results + tough_results
         if save_dir is not None:
             id_list, dets_list = zip(*merged_results)
-            bt.save_dota_submission(save_dir, id_list, dets_list, task, self.CLASSES)
+            if self.save_ori:
+                bt.save_dota_submission_ori_classes(
+                    save_dir, id_list, dets_list, task, self.CLASSES, 
+                    ori_classes=self.ori_CLASSES)
+            else:
+                bt.save_dota_submission(save_dir, id_list, dets_list, task, self.CLASSES)
 
         stop_time = time.time()
         print('Used time: %.1f s' % (stop_time - start_time))
