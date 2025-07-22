@@ -25,11 +25,11 @@ def seesaw_ce_loss(cls_score: Tensor,
     """Calculate the Seesaw CrossEntropy loss.
 
     Args:
-        cls_score (Tensor): The prediction with shape (N, C),
+        cls_score (torch.Tensor): The prediction with shape (N, C),
              C is the number of classes.
-        labels (Tensor): The learning label of the prediction.
-        label_weights (Tensor): Sample-wise loss weight.
-        cum_samples (Tensor): Cumulative samples for each category.
+        labels (torch.Tensor): The learning label of the prediction.
+        label_weights (torch.Tensor): Sample-wise loss weight.
+        cum_samples (torch.Tensor): Cumulative samples for each category.
         num_classes (int): The number of classes.
         p (float): The ``p`` in the mitigation factor.
         q (float): The ``q`` in the compenstation factor.
@@ -40,7 +40,7 @@ def seesaw_ce_loss(cls_score: Tensor,
             the loss. Defaults to None.
 
     Returns:
-        Tensor: The calculated loss
+        torch.Tensor: The calculated loss
     """
     assert cls_score.size(-1) == num_classes
     assert len(cum_samples) == num_classes
@@ -79,77 +79,6 @@ def seesaw_ce_loss(cls_score: Tensor,
     return loss
 
 
-def seesaw_focal_loss(cls_score: Tensor,
-                   labels: Tensor,
-                   label_weights: Tensor,
-                   cum_samples: Tensor,
-                   num_classes: int,
-                   p: float,
-                   q: float,
-                   eps: float,
-                   gamma: float = 2.0,
-                   alpha: float = 0.25,
-                   reduction: str = 'mean',
-                   avg_factor: Optional[int] = None) -> Tensor:
-    """Calculate the Seesaw CrossEntropy loss.
-
-    Args:
-        cls_score (Tensor): The prediction with shape (N, C),
-             C is the number of classes.
-        labels (Tensor): The learning label of the prediction.
-        label_weights (Tensor): Sample-wise loss weight.
-        cum_samples (Tensor): Cumulative samples for each category.
-        num_classes (int): The number of classes.
-        p (float): The ``p`` in the mitigation factor.
-        q (float): The ``q`` in the compenstation factor.
-        eps (float): The minimal value of divisor to smooth
-             the computation of compensation factor
-        gamma (float, optional): The gamma for calculating the modulating
-            factor for focal loss. Defaults to 2.0.
-        alpha (float, optional): A balanced form for Focal Loss.
-            Defaults to 0.25.
-        reduction (str, optional): The method used to reduce the loss.
-        avg_factor (int, optional): Average factor that is used to average
-            the loss. Defaults to None.
-
-    Returns:
-        Tensor: The calculated loss
-    """
-    assert cls_score.size(-1) == num_classes
-    assert len(cum_samples) == num_classes
-
-    onehot_labels = F.one_hot(labels, num_classes)
-    seesaw_weights = cls_score.new_ones(onehot_labels.size())
-
-    # mitigation factor
-    if p > 0:
-        sample_ratio_matrix = cum_samples[None, :].clamp(
-            min=1) / cum_samples[:, None].clamp(min=1)
-        index = (sample_ratio_matrix < 1.0).float()
-        sample_weights = sample_ratio_matrix.pow(p) * index + (1 - index)
-        mitigation_factor = sample_weights[labels.long(), :]
-        seesaw_weights = seesaw_weights * mitigation_factor
-
-    # compensation factor
-    if q > 0:
-        scores = F.softmax(cls_score.detach(), dim=1)
-        self_scores = scores[
-            torch.arange(0, len(scores)).to(scores.device).long(),
-            labels.long()]
-        score_matrix = scores / self_scores[:, None].clamp(min=eps)
-        index = (score_matrix > 1.0).float()
-        compensation_factor = score_matrix.pow(q) * index + (1 - index)
-        seesaw_weights = seesaw_weights * compensation_factor
-
-    cls_score = cls_score + (seesaw_weights.log() * (1 - onehot_labels))
-    
-    if label_weights is not None:
-        label_weights = label_weights.float()
-
-    loss = sigmoid_focal_loss(cls_score, labels, label_weights, 
-                                gamma, alpha, reduction, avg_factor)
-    return loss
-
 
 @LOSSES.register_module()
 class SeesawLoss(nn.Module):
@@ -183,7 +112,8 @@ class SeesawLoss(nn.Module):
                  num_classes: int = 18,
                  eps: float = 1e-2,
                  reduction: str = 'mean',
-                 loss_weight: float = 1.0) -> None:
+                 loss_weight: float = 1.0,
+                 return_dict: bool=False) -> None:
         super().__init__()
         assert not use_sigmoid
         self.use_sigmoid = False
@@ -194,6 +124,7 @@ class SeesawLoss(nn.Module):
         self.eps = eps
         self.reduction = reduction
         self.loss_weight = loss_weight
+        self.return_dict = return_dict
 
         # 0 for pos, 1 for neg
         self.cls_criterion = seesaw_ce_loss
@@ -236,16 +167,16 @@ class SeesawLoss(nn.Module):
         """Forward function.
 
         Args:
-            cls_score (Tensor): The prediction with shape (N, C + 1).
-            labels (Tensor): The learning label of the prediction.
-            label_weights (Tensor, optional): Sample-wise loss weight.
+            cls_score (torch.Tensor): The prediction with shape (N, C + 1).
+            labels (torch.Tensor): The learning label of the prediction.
+            label_weights (torch.Tensor, optional): Sample-wise loss weight.
             avg_factor (int, optional): Average factor that is used to average
                  the loss. Defaults to None.
             reduction (str, optional): The method used to reduce the loss.
                  Options are "none", "mean" and "sum".
 
         Returns:
-            Tensor | Dict [str, Tensor]:
+            torch.Tensor | Dict [str, torch.Tensor]:
                  if return_dict == False: The calculated loss |
                  if return_dict == True: The dict of calculated losses
                  for objectness and classes, respectively.
@@ -299,29 +230,11 @@ class SeesawLoss(nn.Module):
             cls_score_objectness, obj_labels, label_weights, reduction,
             avg_factor)
 
-        loss_cls = loss_cls_classes + loss_cls_objectness
+        if self.return_dict:
+            loss_cls = dict()
+            loss_cls['loss_cls_objectness'] = loss_cls_objectness
+            loss_cls['loss_cls_classes'] = loss_cls_classes
+        else:
+            loss_cls = loss_cls_classes + loss_cls_objectness
         
         return loss_cls
-
-@LOSSES.register_module()
-class SeesawFocalLoss(SeesawLoss):
-
-    def __init__(self,
-                 use_sigmoid: bool = False,
-                 no_bg_score: bool = False,
-                 p: float = 0.8,
-                 q: float = 2.0,
-                 num_classes: int = 18,
-                 eps: float = 1e-2,
-                 gamma: float = 2.0,
-                 alpha: float = 0.25,
-                 reduction: str = 'mean',
-                 loss_weight: float = 1.0) -> None:
-        super().__init__(use_sigmoid, no_bg_score, p, q, num_classes, eps, reduction, loss_weight)
-        
-        self.gamma = gamma
-        self.alpha = alpha
-
-        # 0 for pos, 1 for neg
-        self.cls_criterion = partial(seesaw_focal_loss, gamma=self.gamma, alpha=self.alpha)
-

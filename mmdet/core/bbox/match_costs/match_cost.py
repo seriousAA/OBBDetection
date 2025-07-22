@@ -316,42 +316,6 @@ class SeesawLossCost(BaseSeesawCost):
 
 
 @MATCH_COST.register_module()
-class SeesawFocalLossCost(BaseSeesawCost):
-    """SeesawFocalLossCost.
-
-    Args:
-        weight (int | float, optional): loss_weight
-        p (float, optional): The parameter p for the seesaw loss.
-        q (float, optional): The parameter q for the seesaw loss.
-        num_classes (int, optional): The number of classes.
-        eps (float, optional): The parameter eps for the seesaw loss.
-        gamma (float, optional): The gamma for calculating the modulating
-            factor for focal loss. Defaults to 2.0.
-        alpha (float, optional): A balanced form for Focal Loss.
-            Defaults to 0.25.
-        with_bg_score (bool, optional): Whether the background class is included in the score.
-
-    """
-
-    def __init__(self,
-                 weight: float = 1.0,
-                 p: float = 0.8,
-                 q: float = 2.0,
-                 num_classes: int = 18,
-                 eps: float = 1e-2,
-                 gamma: float = 2.0,
-                 alpha: float = 0.25,
-                 with_bg_score: bool = True) -> None:
-        super().__init__(weight, p, q, num_classes, eps, with_bg_score)
-        self.gamma = gamma
-        self.alpha = alpha
-
-    def forward(self, cls_score: Tensor, gt_labels: Tensor) -> Tensor:
-        cost_function = FocalLossCost(self.weight, self.alpha, self.gamma, self.eps)
-        return super().forward(cls_score, gt_labels, cost_function)
-
-
-@MATCH_COST.register_module()
 class IoUCost:
     """IoUCost.
 

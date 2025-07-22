@@ -14,7 +14,7 @@ from .general.ghm_loss import GHMC, GHMR
 
 from .softmax_focal_loss import SoftmaxFocalLoss
 from .soft_label_focal_loss import FocalKLLoss
-from .seesaw_loss import SeesawLoss, SeesawFocalLoss
+from .seesaw_loss import SeesawLoss
 from .focal_loss import FocalLoss, sigmoid_focal_loss
 from .gaussian_focal_loss import GaussianFocalLoss
 from .gfocal_loss import DistributionFocalLoss, QualityFocalLoss
@@ -37,5 +37,5 @@ __all__ = [
     'QualityFocalLoss', 'DistributionFocalLoss',
     'GDLoss', 'GDLoss_v1', 'KFLoss', 'SmoothFocalLoss', 'RotatedIoULoss', 'PolyIoULoss',
     'PolyGIoULoss', 'SoftmaxFocalLoss', 'TaskAlignedFocalLoss', 'BinaryKLDivLoss',
-    'FocalKLLoss', 'SeesawLoss', 'SeesawFocalLoss'
+    'FocalKLLoss', 'SeesawLoss'
 ]
