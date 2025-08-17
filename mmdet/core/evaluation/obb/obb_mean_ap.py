@@ -2,6 +2,8 @@ from multiprocessing import Pool
 
 import mmcv
 import numpy as np
+import torch
+from mmdet.ops import box_iou_rotated
 from mmcv.utils import print_log
 from terminaltables import AsciiTable
 
@@ -65,10 +67,10 @@ def tpfp_default(det_bboxes,
     """Check if detected bboxes are true positive or false positive.
 
     Args:
-        det_bbox (ndarray): Detected bboxes of this image, of shape (m, 5).
-        gt_bboxes (ndarray): GT bboxes of this image, of shape (n, 4).
+        det_bboxes (ndarray): Detected bboxes of this image, of shape (m, 6).
+        gt_bboxes (ndarray): GT bboxes of this image, of shape (n, 5).
         gt_bboxes_ignore (ndarray): Ignored gt bboxes of this image,
-            of shape (k, 4). Default: None
+            of shape (k, 5). Default: None
         iou_thr (float): IoU threshold to be considered as matched.
             Default: 0.5.
         area_ranges (list[tuple] | None): Range of bbox areas to be evaluated,
@@ -79,9 +81,10 @@ def tpfp_default(det_bboxes,
             each array is (num_scales, m).
     """
     # an indicator of ignored gts
+    det_bboxes = np.array(det_bboxes)
     gt_ignore_inds = np.concatenate(
-        (np.zeros(gt_bboxes.shape[0], dtype=np.bool_),
-         np.ones(gt_bboxes_ignore.shape[0], dtype=np.bool_)))
+        (np.zeros(gt_bboxes.shape[0],
+                  dtype=bool), np.ones(gt_bboxes_ignore.shape[0], dtype=bool)))
     # stack gt_bboxes and gt_bboxes_ignore for convenience
     gt_bboxes = np.vstack((gt_bboxes, gt_bboxes_ignore))
 
@@ -178,7 +181,7 @@ def eval_arb_map(det_results,
                  dataset=None,
                  logger=None,
                  nproc=4):
-    """Evaluate mAP of a dataset.
+    """Evaluate mAP of a rotated dataset.
 
     Args:
         det_results (list[list]): [[cls1_det, cls2_det, ...], ...].
@@ -187,9 +190,9 @@ def eval_arb_map(det_results,
         annotations (list[dict]): Ground truth annotations where each item of
             the list indicates an image. Keys of annotations are:
 
-            - `bboxes`: numpy array of shape (n, 4)
+            - `bboxes`: numpy array of shape (n, 5)
             - `labels`: numpy array of shape (n, )
-            - `bboxes_ignore` (optional): numpy array of shape (k, 4)
+            - `bboxes_ignore` (optional): numpy array of shape (k, 5)
             - `labels_ignore` (optional): numpy array of shape (k, )
         scale_ranges (list[tuple] | None): Range of scales to be evaluated,
             in the format [(min1, max1), (min2, max2), ...]. A range of
@@ -197,8 +200,9 @@ def eval_arb_map(det_results,
             Default: None.
         iou_thr (float): IoU threshold to be considered as matched.
             Default: 0.5.
+        use_07_metric (bool): Whether to use the voc07 metric.
         dataset (list[str] | str | None): Dataset name or dataset classes,
-            there are minor differences in metrics for different datsets, e.g.
+            there are minor differences in metrics for different datasets, e.g.
             "voc07", "imagenet_det", etc. Default: None.
         logger (logging.Logger | str | None): The way to print the mAP
             summary. See `mmdet.utils.print_log()` for details. Default: None.

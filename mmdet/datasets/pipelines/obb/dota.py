@@ -27,7 +27,8 @@ class LoadDOTASpecialInfo(object):
         for res_key, img_key in self.img_keys.items():
             results[res_key] = results['img_info'][img_key]
         for res_key, split_key in self.split_keys.items():
-            results[res_key] = results['split_info'][split_key]
+            if 'split_info' in results:
+                results[res_key] = results['split_info'][split_key]
         results['aligned_fields'] = []
         for res_key, ann_key in self.ann_keys.items():
             results[res_key] = results['ann_info'][ann_key]
