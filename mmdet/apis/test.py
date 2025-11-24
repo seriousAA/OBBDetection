@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 import pickle
 import shutil
@@ -47,6 +48,7 @@ def single_gpu_test(model,
                 else:
                     out_file = None
 
+                os.makedirs(osp.dirname(out_file), exist_ok=True)
                 model.module.show_result(
                     img_show,
                     result[i],
