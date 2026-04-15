@@ -66,7 +66,7 @@ class O2MAssigner(BaseAssigner):
             'Only case when gt_bboxes_ignore is None is supported.'
 
         num_gts, num_bboxes = gt_bboxes.size(0), bbox_pred.size(0)
-        gt_labels = gt_labels.long()
+        gt_labels = gt_labels.reshape(-1).long()
 
         # Assign -1 by default
         assigned_gt_inds = bbox_pred.new_full((num_bboxes,), -1, dtype=torch.long)
@@ -146,9 +146,12 @@ class O2MAssigner(BaseAssigner):
 
         # Assign backgrounds and foregrounds
         assigned_gt_inds[:] = 0
-        assigned_gt_inds[max_overlaps != -INF] = argmax_overlaps[max_overlaps != -INF] + 1
-        assign_metrics[max_overlaps != -INF] = alignment_metrics[max_overlaps != -INF, 
-                                                                 argmax_overlaps[max_overlaps != -INF]]
+        pos_inds = torch.nonzero(max_overlaps != -INF, as_tuple=False).squeeze(-1)
+        if pos_inds.numel() > 0:
+            assigned_gt_inds[pos_inds] = argmax_overlaps[pos_inds] + 1
+            assign_metrics[pos_inds] = alignment_metrics[
+                pos_inds, argmax_overlaps[pos_inds]
+            ]
 
         if gt_labels is not None:
             pos_inds = torch.nonzero(assigned_gt_inds > 0, as_tuple=False).squeeze()
